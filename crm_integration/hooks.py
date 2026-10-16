@@ -161,7 +161,10 @@ doc_events = {
 	"Sales Order": {
 		"before_insert": "crm_integration.crm_integration.sales_order.prevent_duplicate_crm_order_no",
 		"validate": "crm_integration.crm_integration.finance_release.protect_process_status",
-		"before_update_after_submit": "crm_integration.crm_integration.finance_release.protect_process_status",
+		"before_update_after_submit": [
+			"crm_integration.crm_integration.finance_release.protect_process_status",
+			"crm_integration.crm_integration.sales_order.protect_crm_order_identity",
+		],
 		"after_insert": "crm_integration.crm_integration.integration_log.log_inbound_sales_order",
 		"before_submit": "crm_integration.crm_integration.sales_order.prevent_rejected_sales_order_submit",
 		"before_cancel": "crm_integration.crm_integration.sales_order.prevent_deposit_confirmation_processing_cancel",

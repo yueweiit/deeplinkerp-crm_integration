@@ -8,7 +8,7 @@ from frappe.utils import cint, flt, now
 from frappe.utils.data import get_datetime
 
 from crm_integration.crm_integration.integration_log import create_crm_log, update_crm_log
-from crm_integration.crm_integration.sales_order_identity import get_sales_order_names_by_crm_order_no
+from crm_integration.crm_integration.sales_order_identity import crm_sales_order_creation_lock, get_sales_order_names_by_crm_order_no
 from crm_integration.crm_integration.settings import is_crm_integration_enabled, throw_crm_integration_disabled
 
 
@@ -61,12 +61,38 @@ def prevent_duplicate_crm_order_no(doc, method=None):
 		return
 
 	existing_names = get_sales_order_names_by_crm_order_no(crm_order_no, limit=1)
-	if existing_names:
+	resubmission = bool((getattr(doc, "flags", None) or {}).get("crm_resubmission"))
+	if existing_names and not resubmission:
 		frappe.throw(
 			_("CRM 销售订单号 {0} 已被销售订单 {1} 使用。").format(
 				crm_order_no, existing_names[0]
 			)
 		)
+	if resubmission:
+		active = frappe.get_all("Sales Order", filters={
+			"custom_crm_order_no": crm_order_no, "docstatus": ["!=", 2],
+		}, pluck="name", limit_page_length=1)
+		if active:
+			frappe.throw(_("CRM 订单号 {0} 仍存在有效或草稿销售订单 {1}。").format(crm_order_no, active[0]))
+
+
+def protect_crm_order_identity(doc, method=None):
+	if doc.flags.get("crm_order_operation"):
+		return
+	previous = doc.get_doc_before_save()
+	if not previous or not (previous.get("custom_crm_order_no") or doc.get("custom_crm_order_no")):
+		return
+	for field in ("custom_crm_order_no", "custom_crm_order_id", "custom_crm_approval_round",
+		"custom_crm_revision", "custom_crm_production_started", "custom_crm_production_milestone"):
+		if doc.get(field) != previous.get(field):
+			frappe.throw(_("CRM 订单身份与版本只能通过受控接口修改：{0}。").format(field))
+	previous_rows = {row.name: row for row in previous.get("items") or []}
+	for row in doc.get("items") or []:
+		old = previous_rows.get(row.name)
+		if old and row.get("custom_crm_order_item_id") != old.get("custom_crm_order_item_id"):
+			frappe.throw(_("CRM 明细身份只能通过受控接口修改。"))
+		if not old and row.get("custom_crm_order_item_id"):
+			frappe.throw(_("新增 CRM 明细身份只能通过受控接口设置。"))
 
 
 @frappe.whitelist()
@@ -205,6 +231,8 @@ def push_sales_order_status_to_crm(
 		"sourceSystem": "ERP",
 		"externalStatus": external_status,
 		"externalOrderId": external_order_id,
+		"erpOrderId": sales_order.name,
+		"crmApprovalRound": cint(sales_order.get("custom_crm_approval_round")),
 		"remark": remark if remark is not None else sales_order.get("custom_remark") or "",
 		"traceId": trace_id,
 		"attachments": [],
@@ -345,6 +373,8 @@ def push_sales_order_status_payload_to_crm(
 		"sourceSystem": "ERP",
 		"externalStatus": external_status,
 		"externalOrderId": external_order_id,
+		"erpOrderId": sales_order.name,
+		"crmApprovalRound": cint(sales_order.get("custom_crm_approval_round")),
 		"remark": remark
 		if remark is not None
 		else get_crm_status_remark(sales_order, triggered_status, delivery_note_name),
@@ -681,6 +711,7 @@ def build_mes_sales_order_items(sales_order):
 			"description": row.get("description"),
 			"color": row.get("custom_specifications"),
 			"custom_version": row.get("custom_version"),
+			"custom_mes_route_scenario": row.get("custom_mes_route_scenario"),
 			"qty": flt(row.get("qty")),
 			"uom": row.get("uom"),
 			"rate": flt(row.get("rate")),
@@ -876,7 +907,12 @@ def confirm_deposit_and_push_to_mes_job(sales_order_name, audit_log=None):
 		return None
 
 	try:
-		result = run_confirm_deposit_sync(sales_order)
+		with crm_sales_order_creation_lock(sales_order.get("custom_crm_order_no")):
+			frappe.db.get_value("Sales Order", sales_order_name, "name", for_update=True)
+			sales_order = frappe.get_doc("Sales Order", sales_order_name)
+			if sales_order.get("custom_process_status") != DEPOSIT_CONFIRMATION_PROCESSING:
+				return None
+			result = run_confirm_deposit_sync(sales_order)
 		if audit_log:
 			from crm_integration.crm_integration.finance_release import update_finance_audit
 			update_finance_audit(audit_log, sales_order_name, "Success", result["process_status"])
@@ -937,7 +973,18 @@ def run_confirm_deposit_sync(sales_order):
 		frappe.throw(_("只有待确认定金的销售订单可以推送至MES。"))
 
 	push_sales_order_status_to_crm(sales_order, CRM_STATUS_CONFIRMED_DEPOSIT_PUSH_PRODUCTION)
+	if not cint(sales_order.get("custom_crm_production_started")):
+		# An E3 timeout may mean CRM accepted the event; persist the attempt first.
+		sales_order.db_set("custom_crm_production_milestone", "ATTEMPTED", update_modified=True)
+		sales_order.custom_crm_production_milestone = "ATTEMPTED"
+		frappe.db.commit()
 	push_sales_order_status_to_crm(sales_order, CRM_STATUS_IN_PRODUCTION)
+	if not cint(sales_order.get("custom_crm_production_started")):
+		sales_order.db_set({"custom_crm_production_started": 1,
+			"custom_crm_production_milestone": "REACHED"}, update_modified=True)
+		sales_order.custom_crm_production_started = 1
+		sales_order.custom_crm_production_milestone = "REACHED"
+		frappe.db.commit()
 	push_sales_order_to_mes(sales_order)
 	set_process_status(sales_order, PENDING_PRODUCTION)
 

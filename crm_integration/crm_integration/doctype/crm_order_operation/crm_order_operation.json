@@ -1,0 +1,29 @@
+{
+ "actions": [],
+ "autoname": "field:operation_id",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": ["operation_id", "operation_type", "status", "attempt_count", "crm_order_no", "crm_order_id", "erp_order_id", "request_hash", "request_payload", "result_payload", "error_message", "operator_id", "reason"],
+ "fields": [
+  {"fieldname": "operation_id", "fieldtype": "Data", "label": "Operation ID", "length": 140, "reqd": 1, "unique": 1, "read_only": 1, "in_list_view": 1},
+  {"fieldname": "operation_type", "fieldtype": "Select", "label": "Operation Type", "options": "ORDER_CREATE\nORDER_UPDATE\nORDER_REVOKE\nORDER_RESUBMIT", "reqd": 1, "read_only": 1, "in_list_view": 1},
+  {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "PROCESSING\nSUCCEEDED\nREJECTED\nFAILED\nUNKNOWN", "reqd": 1, "read_only": 1, "in_list_view": 1},
+  {"fieldname": "attempt_count", "fieldtype": "Int", "label": "Attempt Count", "read_only": 1},
+  {"fieldname": "crm_order_no", "fieldtype": "Data", "label": "CRM Order No", "reqd": 1, "read_only": 1, "in_list_view": 1},
+  {"fieldname": "crm_order_id", "fieldtype": "Data", "label": "CRM Order ID", "read_only": 1},
+  {"fieldname": "erp_order_id", "fieldtype": "Link", "options": "Sales Order", "label": "ERP Order ID", "read_only": 1, "in_list_view": 1},
+  {"fieldname": "request_hash", "fieldtype": "Data", "label": "Request SHA256", "length": 64, "reqd": 1, "read_only": 1},
+  {"fieldname": "request_payload", "fieldtype": "Code", "options": "JSON", "label": "Request Payload", "read_only": 1},
+  {"fieldname": "result_payload", "fieldtype": "Code", "options": "JSON", "label": "Result Payload", "read_only": 1},
+  {"fieldname": "error_message", "fieldtype": "Small Text", "label": "Error Message", "read_only": 1},
+  {"fieldname": "operator_id", "fieldtype": "Data", "label": "CRM Operator ID", "read_only": 1},
+  {"fieldname": "reason", "fieldtype": "Small Text", "label": "Reason", "read_only": 1}
+ ],
+ "in_create": 1,
+ "module": "Crm Integration",
+ "name": "CRM Order Operation",
+ "permissions": [{"role": "System Manager", "read": 1, "report": 1, "export": 1}],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

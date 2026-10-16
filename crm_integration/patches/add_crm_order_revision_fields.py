@@ -1,0 +1,1 @@
+from crm_integration.patches.add_crm_custom_fields import execute

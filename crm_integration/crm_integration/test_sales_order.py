@@ -279,7 +279,7 @@ class TestSalesOrderPermissions(UnitTestCase):
 		)
 
 	def test_failed_confirm_deposit_job_persists_failure_log(self):
-		doc = self.make_sales_order()
+		doc = self.make_sales_order(DEPOSIT_CONFIRMATION_PROCESSING)
 
 		with (
 			patch.object(frappe, "get_doc", return_value=doc),
@@ -305,6 +305,42 @@ class TestSalesOrderPermissions(UnitTestCase):
 		restore_status.assert_called_once_with("SO-001")
 		create_log.assert_called_once()
 		commit.assert_called_once_with()
+
+	def test_mes_failure_preserves_confirmed_crm_production_milestone(self):
+		doc = frappe._dict(
+			name="SO-001",
+			docstatus=1,
+			status="To Deliver and Bill",
+			custom_process_status=DEPOSIT_CONFIRMATION_PROCESSING,
+			custom_crm_production_started=0,
+			custom_crm_production_milestone="NOT_STARTED",
+		)
+
+		def db_set(field, value=None, **kwargs):
+			if isinstance(field, dict):
+				doc.update(field)
+			else:
+				doc[field] = value
+
+		doc.db_set = MagicMock(side_effect=db_set)
+		with (
+			patch("crm_integration.crm_integration.sales_order.push_sales_order_status_to_crm") as push_crm,
+			patch("crm_integration.crm_integration.sales_order.push_sales_order_to_mes", side_effect=RuntimeError("MES 401")),
+			patch("crm_integration.crm_integration.sales_order.set_process_status") as set_status,
+			patch.object(frappe.db, "commit") as commit,
+			self.assertRaisesRegex(RuntimeError, "MES 401"),
+		):
+			run_confirm_deposit_sync(doc)
+
+		self.assertEqual(push_crm.call_args_list, [
+			call(doc, CRM_STATUS_CONFIRMED_DEPOSIT_PUSH_PRODUCTION),
+			call(doc, CRM_STATUS_IN_PRODUCTION),
+		])
+		self.assertEqual(doc.custom_crm_production_milestone, "REACHED")
+		self.assertEqual(doc.custom_crm_production_started, 1)
+		self.assertEqual(doc.custom_process_status, DEPOSIT_CONFIRMATION_PROCESSING)
+		self.assertEqual(commit.call_count, 2)
+		set_status.assert_not_called()
 
 	def test_failed_confirm_deposit_restores_retryable_status(self):
 		doc = self.make_sales_order(DEPOSIT_CONFIRMATION_PROCESSING)

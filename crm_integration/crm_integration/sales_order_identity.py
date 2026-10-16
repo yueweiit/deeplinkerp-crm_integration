@@ -9,10 +9,13 @@ from frappe.utils import cint
 CRM_ORDER_LOCK_TIMEOUT = 10
 
 
-def get_sales_order_names_by_crm_order_no(crm_order_no, limit=2):
+def get_sales_order_names_by_crm_order_no(crm_order_no, limit=2, *, docstatus=None):
+	filters = {"custom_crm_order_no": crm_order_no}
+	if docstatus is not None:
+		filters["docstatus"] = docstatus
 	return frappe.get_all(
 		"Sales Order",
-		filters={"custom_crm_order_no": crm_order_no},
+		filters=filters,
 		pluck="name",
 		limit_page_length=limit,
 	)

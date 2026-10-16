@@ -20,6 +20,7 @@ from crm_integration.crm_integration.sales_order import (
 	is_missing_mes_integration_error,
 	set_process_status,
 )
+from crm_integration.crm_integration.sales_order_identity import get_sales_order_names_by_crm_order_no
 from crm_integration.crm_integration.settings import is_crm_integration_enabled
 from crm_integration.patches.add_crm_custom_fields import CRM_TEMPORARY_RECEIPT_TYPE
 
@@ -270,16 +271,11 @@ def get_crm_shipment_sales_order(payload):
 			)
 		return sales_order
 
-	names = frappe.get_all(
-		"Sales Order",
-		filters={"custom_crm_order_no": crm_order_no},
-		pluck="name",
-		limit_page_length=2,
-	)
+	names = get_sales_order_names_by_crm_order_no(crm_order_no, docstatus=1)
 	if not names:
 		frappe.throw(_("未找到 CRM 销售订单号 {0} 对应的销售订单。").format(crm_order_no), exc=CRMShipmentSalesOrderNotFound)
 	if len(names) > 1:
-		throw_crm_shipment_identity_conflict(_("CRM 销售订单号 {0} 对应多笔销售订单。").format(crm_order_no))
+		throw_crm_shipment_identity_conflict(_("CRM 销售订单号 {0} 对应多笔有效销售订单。").format(crm_order_no))
 	return frappe.get_doc("Sales Order", names[0])
 
 

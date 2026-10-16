@@ -20,6 +20,26 @@ from crm_integration.crm_integration.sales_order import CRM_STATUS_SHIPMENT_CANC
 
 
 class TestCRMShipmentAllocation(UnitTestCase):
+	def test_crm_number_selects_effective_order_after_resubmission(self):
+		order = frappe._dict(name="SO-NEW", docstatus=1, custom_crm_order_no="CRM-001")
+		with (
+			patch.object(shipment, "get_sales_order_names_by_crm_order_no", return_value=["SO-NEW"]) as names,
+			patch.object(frappe, "get_doc", return_value=order) as get_doc,
+		):
+			result = shipment.get_crm_shipment_sales_order({"custom_crm_order_no": "CRM-001"})
+		names.assert_called_once_with("CRM-001", docstatus=1)
+		get_doc.assert_called_once_with("Sales Order", "SO-NEW")
+		self.assertIs(result, order)
+
+	def test_crm_number_rejects_multiple_effective_orders(self):
+		with (
+			patch.object(shipment, "get_sales_order_names_by_crm_order_no", return_value=["SO-A", "SO-B"]),
+			patch.object(frappe, "get_doc") as get_doc,
+		):
+			with self.assertRaises(shipment.CRMShipmentIdentityConflict):
+				shipment.get_crm_shipment_sales_order({"custom_crm_order_no": "CRM-001"})
+		get_doc.assert_not_called()
+
 	def test_zero_sales_order_rate_is_not_replaced_by_item_price(self):
 		source = frappe._dict(
 			price_list_rate=0,

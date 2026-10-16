@@ -137,6 +137,45 @@ class TestCRMAPI(UnitTestCase):
 
 		doc.save.assert_not_called()
 
+	def test_sales_order_update_selects_effective_order_after_resubmission(self):
+		doc = MagicMock()
+		doc.name, doc.docstatus, doc.custom_crm_order_no = "SO-NEW", 1, "CRM-001"
+		doc.flags = frappe._dict()
+		doc.get.side_effect = lambda field: {"company": "Test Company"}.get(field)
+		payload = {"custom_crm_order_no": "CRM-001", "custom_remark": "corrected"}
+		with (
+			patch.object(api, "validate_crm_api_user"),
+			patch.object(api, "get_sales_order_names_by_crm_order_no", return_value=["SO-NEW"]) as names,
+			patch.object(frappe, "get_doc", return_value=doc) as get_doc,
+			patch.object(api, "is_crm_integration_enabled", return_value=True),
+			patch.object(api, "validate_sales_order_update_status"),
+			patch("crm_integration.crm_integration.order_revision.linked_facts", return_value={}),
+			patch("crm_integration.crm_integration.order_revision.eligibility", return_value=(None, None)),
+		):
+			result = update_sales_order_by_crm_order_no(payload)
+		names.assert_called_once_with("CRM-001", docstatus=1)
+		get_doc.assert_called_once_with("Sales Order", "SO-NEW")
+		self.assertEqual(result["name"], "SO-NEW")
+		doc.save.assert_called_once()
+
+	def test_effective_order_lookup_filters_cancelled_history(self):
+		with patch.object(frappe, "get_all", return_value=["SO-NEW"]) as get_all:
+			self.assertEqual(api.get_sales_order_names_by_crm_order_no("CRM-001", docstatus=1), ["SO-NEW"])
+		get_all.assert_called_once_with("Sales Order", filters={
+			"custom_crm_order_no": "CRM-001", "docstatus": 1,
+		}, pluck="name", limit_page_length=2)
+
+	def test_sales_order_update_rejects_duplicate_effective_orders(self):
+		with (
+			patch.object(api, "validate_crm_api_user"),
+			patch.object(api, "get_sales_order_names_by_crm_order_no", return_value=["SO-A", "SO-B"]) as names,
+			patch.object(frappe, "get_doc") as get_doc,
+		):
+			with self.assertRaisesRegex(frappe.ValidationError, "多笔有效销售订单"):
+				update_sales_order_by_crm_order_no({"custom_crm_order_no": "CRM-001"})
+		names.assert_called_once_with("CRM-001", docstatus=1)
+		get_doc.assert_not_called()
+
 	def test_sales_order_item_correction_requires_row_name(self):
 		row = frappe._dict(name="SOI-001", item_code="ITEM-OLD")
 		doc = MagicMock()
@@ -380,9 +419,10 @@ class TestMissingCRMOrderItems(UnitTestCase):
 	def test_completion_rejects_stale_plan_before_native_write(self):
 		payload = dict(custom_crm_order_no="CRM-001", mode="complete_missing_items",
 			completion_fingerprint="stale", items=self.source)
+		self.doc.name = "SO-NEW"
 		with (patch.object(api, "validate_crm_api_user"),
 			patch.object(api, "crm_sales_order_creation_lock", return_value=nullcontext()),
-			patch.object(frappe, "get_all", side_effect=lambda doctype, **kwargs: ["SO-001"] if doctype == "Sales Order" else []),
+			patch.object(api, "get_sales_order_names_by_crm_order_no", return_value=["SO-NEW"]) as names,
 			patch.object(frappe, "get_doc", return_value=self.doc),
 			patch.object(frappe.db, "sql", return_value=[]),
 			patch.object(api, "is_crm_integration_enabled", return_value=True),
@@ -390,6 +430,7 @@ class TestMissingCRMOrderItems(UnitTestCase):
 			patch.object(api, "update_child_qty_rate") as native):
 			with self.assertRaisesRegex(frappe.ValidationError, "重新预览"):
 				update_sales_order_by_crm_order_no(payload)
+			names.assert_called_once_with("CRM-001", docstatus=1)
 			planner.assert_called_once_with(self.doc, self.source, historical_replay=False)
 			native.assert_not_called()
 
