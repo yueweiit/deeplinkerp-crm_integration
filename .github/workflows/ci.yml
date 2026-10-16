@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-      - crm_integration
-      - codex/crm-outbound-native
   pull_request:
 
 concurrency:
