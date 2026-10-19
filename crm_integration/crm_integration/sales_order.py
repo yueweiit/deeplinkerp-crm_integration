@@ -630,6 +630,7 @@ def log_failed_mes_sales_order_push(
 	services=None,
 ):
 	services = services or get_mes_integration_services()
+	http_status_code = http_status_code if http_status_code is not None else 0
 	log_values = {
 		"status": "Failed",
 		"response_payload": response_payload,

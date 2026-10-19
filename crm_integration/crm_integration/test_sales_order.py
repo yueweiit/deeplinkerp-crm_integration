@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, call, patch
 
 import frappe
 from frappe.tests import UnitTestCase
+from requests.exceptions import ConnectionError as RequestsConnectionError
 
 from crm_integration.crm_integration.sales_order import (
 	CRM_STATUS_CONFIRMED_DEPOSIT_PUSH_PRODUCTION,
@@ -18,6 +19,7 @@ from crm_integration.crm_integration.sales_order import (
 	make_crm_trace_id,
 	prevent_deposit_confirmation_processing_cancel,
 	prevent_duplicate_crm_order_no,
+	push_sales_order_to_mes,
 	push_sales_order_status_payload_to_crm,
 	reconcile_final_payment,
 	reject_sales_order,
@@ -27,6 +29,29 @@ from crm_integration.crm_integration.sales_order import (
 
 
 class TestMESSalesOrderPayload(UnitTestCase):
+	def test_connection_failure_records_failed_mes_log_without_http_response(self):
+		order = frappe._dict(name="SO-001")
+		log = frappe._dict(name="MES-LOG-001")
+		services = frappe._dict(create_log=MagicMock(return_value=log), update_log=MagicMock())
+
+		with (
+			patch("crm_integration.crm_integration.sales_order.validate_mes_sync_available", return_value=services),
+			patch("crm_integration.crm_integration.sales_order.build_mes_sales_order_payload", return_value={"doc_name": order.name}),
+			patch("crm_integration.crm_integration.sales_order.get_mes_sales_order_push_url", return_value="http://mes.example/sales-order"),
+			patch("crm_integration.crm_integration.sales_order.get_mes_sales_order_push_authorization", return_value="test-authorization"),
+			patch("crm_integration.crm_integration.sales_order.requests.post", side_effect=RequestsConnectionError("connection refused")),
+			patch.object(frappe.db, "commit") as commit,
+			patch.object(frappe, "log_error"),
+			self.assertRaisesRegex(frappe.ValidationError, "MES 销售订单推送失败"),
+		):
+			push_sales_order_to_mes(order)
+
+		services.update_log.assert_called_once()
+		self.assertEqual(services.update_log.call_args.args, (log,))
+		self.assertEqual(services.update_log.call_args.kwargs["status"], "Failed")
+		self.assertEqual(services.update_log.call_args.kwargs["http_status_code"], 0)
+		commit.assert_called_once_with()
+
 	def test_versions_are_preserved_per_sales_order_line(self):
 		order = frappe._dict(
 			name="SO-001",
