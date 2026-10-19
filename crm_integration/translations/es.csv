@@ -144,3 +144,333 @@ ERP 订单金额,Importe del pedido en ERP
 CRM/MES 同步处理中,Enviando a CRM/MES
 待定金确认,Pendiente de autorización financiera
 业务状态由财务确认和 CRM/MES 同步流程更新，不能直接修改。,El estado del pedido se actualiza con la autorización de Finanzas y el envío a CRM/MES. No se puede cambiar manualmente.
+Actual 税费行字段无效或缺少 tax_amount。,El campo de línea de impuestos real no es válido o falta tax_amount.
+Attempt Count,Recuento de intentos
+CRM Integration Log,Registro de integración CRM
+CRM Operator ID,CRM Operador ID
+CRM Order ID,CRM Orden ID
+CRM Order No,CRM Número de pedido
+CRM Order Operation,Operación de orden CRM
+CRM manifest 第 {0} 行 quantity 必须为正数。,La cantidad de la línea de manifiesto CRM {0} debe ser un número positivo.
+CRM manifest 第 {0} 行 version 必须明确提供字符串（无版本用空字符串），且不能超过 64 字符。,Línea de manifiesto CRM {0} La cadena de versión se debe proporcionar explícitamente (use una cadena vacía si no hay versión) y no puede exceder los 64 caracteres.
+CRM manifest 第 {0} 行包含不支持的字段或不是对象。,CRM La línea de manifiesto {0} contiene un campo no admitido o no es un objeto.
+CRM manifest 第 {0} 行缺少唯一 id、itemCode、unit 或 id 重复。,"A la línea de manifiesto CRM {0} le falta una identificación única, itemCode, unidad o una identificación duplicada."
+CRM manifest 第 {0} 行缺少有效 price；缺失价格不能视为零。,CRM A la fila del manifiesto {0} le falta un precio válido; el precio que falta no puede considerarse cero.
+CRM 内容版本不匹配。,CRM La versión del contenido no coincide.
+CRM 内容版本不能为负数。,CRM La versión del contenido no puede ser negativa.
+CRM 发货单号 {0} 对应的 ERP 销售出库已取消。,CRM número de orden de entrega {0} correspondiente a ERP Nota de Entrega ha sido cancelado.
+CRM 发货单号 {0} 已对应多张 ERP 销售出库。,El número de orden de entrega CRM {0} ha correspondido a múltiples ERP Nota de Entrega.
+CRM 发货单号 {0} 正在处理中，请稍后重试。,CRM El número de orden de envío {0} se está procesando. Vuelva a intentarlo más tarde.
+CRM 发货单已处理，本次请求按幂等方式返回原销售出库。,Se ha procesado la orden de entrega CRM y esta solicitud devuelve el Nota de Entrega original de forma idempotente.
+CRM 发货单幂等编号冲突,CRM Conflicto de número idempotente de factura
+CRM 审批轮次不匹配。,CRM Las rondas de aprobación no coinciden.
+CRM 待补明细存在重复、歧义行，须先建立唯一现有行绑定。,CRM Hay filas duplicadas o ambiguas en los detalles que se van a complementar y primero se debe establecer un enlace de fila existente único.
+CRM 待补明细换算为原生 UOM 后存在重复、歧义行。,Hay filas duplicadas y ambiguas después de que los detalles CRM que se van a proporcionar se convierten en UOM nativo.
+CRM 成品短缺临时补入库，按订单有效单价折算本币及库存单位临时估值；不代表实际生产成本。事件：{0},"Los productos terminados CRM se reponen temporalmente en el almacén debido a la escasez, y la moneda local se convierte de acuerdo con el precio unitario efectivo del pedido y la valoración temporal de Unidad de Existencias no es representativa del costo de producción real. Evento: {0}"
+CRM 明细 ID 已绑定其他 ERP 明细。,Detalle CRM ID se ha vinculado a otro detalle ERP.
+CRM 明细身份只能通过受控接口修改。,La identidad detallada de CRM solo se puede modificar a través de la interfaz controlada.
+CRM 来源内容与 source_fingerprint 不一致，请重新预览。,El contenido fuente de CRM no coincide con source_fingerprint; obtenga una vista previa nuevamente.
+CRM 目标版本必须比预期版本增加 1。,CRM La versión de destino debe aumentarse en 1 con respecto a la versión esperada.
+CRM 稳定订单 ID 不匹配。,El orden estable CRM ID no coincide.
+CRM 稳定订单 ID 与当前有效订单不匹配。,CRM El pedido estable ID no coincide con el pedido actualmente activo.
+CRM 行 {0} VAT 缺失或非零，无法无歧义沿用原生税务处理。,"Faltan filas CRM {0} VAT o son distintas de cero, y el tratamiento fiscal nativo no se puede heredar sin ambigüedades."
+CRM 订单号 {0} 仍存在有效或草稿销售订单 {1}。,CRM El número de pedido {0} aún es válido o borrador Pedido de Venta {1}.
+CRM 订单号 {0} 对应多张已提交订单，需人工处理。,CRM El número de pedido {0} corresponde a varios pedidos enviados y requiere procesamiento manual.
+CRM 订单身份与版本只能通过受控接口修改：{0}。,CRM La identidad y versión del pedido solo se pueden modificar a través de la interfaz controlada: {0}.
+CRM 订单身份在加锁前已变化，请重新预览。,CRM La identidad del pedido cambió antes de bloquearse; obtenga una vista previa nuevamente.
+CRM 销售出库必须且只能关联一张销售订单。,CRM Nota de Entrega debe y solo puede asociarse con un Pedido de Venta.
+CRM 销售订单号 {0} 只有历史或草稿单；重新提交请使用专用接口。,CRM Pedido de Venta No. {0} solo tiene historial o borradores de pedidos; utilice la interfaz dedicada para volver a enviarlo.
+CRM 销售订单号 {0} 对应多笔有效销售订单。,CRM Pedido de Venta número {0} corresponde a múltiples Pedido de Venta válidos.
+CRM 销售订单号 {0} 对应多笔有效销售订单，无法安全修改。,CRM Pedido de Venta El número {0} corresponde a varios Pedido de Venta válidos y no se puede modificar de forma segura.
+CRM 销售订单号 {0} 已存在，但对应销售订单不是已提交状态。,"CRM Pedido de Venta El número {0} ya existe, pero el Pedido de Venta correspondiente no está en el estado enviado."
+CRM 销售订单号 {0} 已对应多笔有效销售订单，请先处理重复数据。,CRM El número Pedido de Venta {0} ha correspondido a varios Pedido de Venta válidos. Procese primero los datos duplicados.
+CRM 销售订单号 {0} 已被其他公司使用。,CRM Pedido de Venta El número {0} ha sido utilizado por otras empresas.
+CRM 销售订单号 {0} 已被销售订单 {1} 使用。,CRM Pedido de Venta El número {0} ha sido utilizado por Pedido de Venta {1}.
+CRM 销售订单号 {0} 必须唯一对应一笔有效销售订单。,CRM Pedido de Venta El número {0} debe corresponder de forma única a un Pedido de Venta válido.
+CRM 销售订单号 {0} 正在处理中，请稍后重试。,CRM Pedido de Venta El número {0} se está procesando. Vuelva a intentarlo más tarde.
+CRM/ERP 明细身份不匹配。,Las identidades detalladas de CRM/ERP no coinciden.
+Cancel,Cancelar
+Cheque/Reference Date,Cheque / Fecha de referencia
+Continue,Continuar
+Count of linked documents,Recuento de documentos vinculados
+Create,Crear
+Delivery Note,Nota de entrega
+Direction,Dirección
+ERP Order ID,ERP Orden ID
+ERP 保存后的表头交期与请求不一致，请核对明细交期。,ERP La fecha de entrega del encabezado guardado no coincide con la solicitud. Por favor verifique la fecha de entrega detallada.
+ERP 单号与当前有效 CRM 订单不匹配。,El número de pedido ERP no coincide con el pedido CRM actualmente válido.
+ERP 版本已改变，请重新查询订单。,"La versión ERP ha cambiado, verifique el pedido nuevamente."
+ERP 订单不存在或版本已改变，请重新查询。,"ERP El pedido no existe o la versión ha cambiado, por favor consulta nuevamente."
+ERP 销售出库 {0} 关联的销售订单与本次请求不一致。,ERP Nota de Entrega {0} El Pedido de Venta asociado no coincide con esta solicitud.
+ERP 销售出库 {0} 已绑定其他 CRM 发货单号。,ERP Nota de Entrega {0} se ha vinculado a otros números de pedido de entrega CRM.
+ERP 销售出库 {0} 的仓库、批次或序列号与本次 CRM 发货不一致。,"El número de almacén, lote o serie de ERP Nota de Entrega {0} no coincide con este envío de CRM."
+ERP 销售出库 {0} 的明细与本次 CRM 发货数量不一致。,Los detalles de ERP Nota de Entrega {0} no coinciden con la cantidad de CRM enviada esta vez.
+ERP 销售订单 {0} 与 CRM 订单号 {1} 不匹配。,ERP Pedido de Venta {0} no coincide con el número de pedido CRM {1}.
+Error Message,Mensaje de error
+Event,Evento
+External Status,Estado externo
+FAILED,FAILED
+Failed,Fallido
+Get Items From,Obtener artículos de
+HTTP Status Code,Código de estado HTTP
+Inbound,entrante
+MES 下推存在结果或结果未知，不能更改仓库。,MES Hay resultados en el pushdown o se desconocen los resultados y el almacén no se puede cambiar.
+Mandatory,Obligatorio
+ORDER_CREATE,ORDER_CREATE
+ORDER_RESUBMIT,ORDER_RESUBMIT
+ORDER_REVOKE,ORDER_REVOKE
+ORDER_UPDATE,ORDER_UPDATE
+Open {0},Abrir {0}
+Operation ID,ID de operación
+Operation Type,Tipo de operación
+Outbound,saliente
+PROCESSING,PROCESSING
+Payload,Carga útil
+Payment Entry,Entrada de pago
+Pending,Pendiente
+Please Select a Customer,Seleccione un cliente
+REJECTED,REJECTED
+Reason,Motivo
+Reference Date for Early Payment Discount,Fecha de referencia para el descuento por pronto pago
+Reference Doctype,Referencia a 'DocType'
+Reference Name,Nombre de referencia
+Request Payload,Solicitar carga útil
+Request SHA256,Solicitar SHA256
+Request URL,URL de Solicitud
+Response Payload,Carga útil de respuesta
+Result,Resultado
+Result Payload,Carga útil del resultado
+SO 缺少 delivery_date，不能为补行编造日期。,"SO Falta delivery_date, no se puede realizar la fecha para la línea de llenado."
+STRUCTURAL_CHANGE_BLOCKED: 已推送 MES 或已有生产/库存预留关联，不能更改订单结构。,STRUCTURAL_CHANGE_BLOCKED: MES ha sido enviado o tiene una asociación de reserva de producción/inventario y la estructura del pedido no se puede cambiar.
+SUCCEEDED,SUCCEEDED
+Sales Order,Orden de venta (OV)
+Sales Production Release Permission,Permiso de lanzamiento de producción de ventas
+Source,Fuente
+Status,Estado
+Submit,Enviar
+Success,Éxito
+Trace ID,ID de Seguimiento
+UNKNOWN,UNKNOWN
+UPDATE 明细至少需要一个变更字段。,El detalle UPDATE requiere al menos un campo de cambio.
+User,Usuario
+allocated_percentage 必须在 0 到 100 之间。,allocated_percentage debe estar entre 0 y 100.
+conversion_rate 必须大于 0。,conversion_rate debe ser mayor que 0.
+crmApprovalRound 必须为正整数。,crmApprovalRound debe ser un número entero positivo.
+crm_order_item_id 不能绑定多条 ERP 明细。,crm_order_item_id no se puede vincular a varios detalles de ERP.
+crm_order_item_id 已绑定其他 ERP 明细。,crm_order_item_id se ha vinculado a otros detalles de ERP.
+crm_order_item_id 已绑定其他来源明细。,crm_order_item_id se ha vinculado a otros detalles de la fuente.
+currency 必须是有效币种代码。,La moneda debe ser un código de moneda válido.
+custom_crm_shipment_no 不能超过 140 个字符。,custom_crm_shipment_no no puede exceder los 140 caracteres.
+custom_item_tax_amount 必须是有限的非负金额。,custom_item_tax_amount debe ser una cantidad finita y no negativa.
+custom_mes_route_scenario 必须是不超过 64 个字符的字符串。,custom_mes_route_scenario debe ser una cadena de no más de 64 caracteres.
+custom_version 最长为 64 个字符。,custom_version puede tener hasta 64 caracteres.
+delivery_note 参数已停用，请由 CRM 提供发货明细，ERP 将直接创建并提交销售出库。,El parámetro delivery_note ha sido deshabilitado. Proporcione los detalles de envío de CRM. ERP creará y enviará directamente Nota de Entrega.
+header 含有不支持的字段：{0}。,El encabezado contiene un campo no admitido: {0}.
+header 必须是对象。,El encabezado debe ser un objeto.
+header.delivery_date 不能为空。,header.delivery_date no puede estar vacío.
+header.delivery_date 必须等于修订后明细的最晚交期。,header.delivery_date debe ser igual a la última fecha de entrega de los detalles revisados.
+historical_replay 必须是布尔值。,historical_replay debe ser un valor booleano.
+items 中的每一项必须是对象。,Cada elemento de los elementos debe ser un objeto.
+items 中第 {0} 项必须是对象。,El artículo {0} en artículos debe ser un objeto.
+items 必须是数组。,Los elementos deben ser una matriz.
+items 必须是非空数组。,Los elementos deben ser una matriz que no esté vacía.
+new_item_code 不能为空。,new_item_code no puede estar vacío.
+operationId 不能超过 140 个字符。,operationId no puede exceder los 140 caracteres.
+operationId 与 CRM 订单号不匹配。,Los números de pedido operationId y CRM no coinciden.
+operationId 已用于另一份请求报文。,operationId se ha utilizado en otro mensaje de solicitud.
+operationType 必须为 {0}。,operationType debe ser {0}.
+operator.id 为必填。,Se requiere operador.id.
+qty 不得小于已交付数量。,La cantidad no debe ser menor que la cantidad entregada.
+qty 必须大于 0。,la cantidad debe ser mayor que 0.
+reason 为必填。,se requiere razón.
+salesOrder 的 CRM 号或公司无效。,El número CRM o la empresa de salesOrder no es válido.
+sales_order 和 custom_crm_order_no 至少需要提供一个。,Es necesario proporcionar al menos uno de los modelos sales_order y custom_crm_order_no.
+sales_team 必须是数组。,sales_team debe ser una matriz.
+sales_team 每行只需 sales_person 和 allocated_percentage。,sales_team Solo sales_person y allocated_percentage por fila.
+sales_team 的 allocated_percentage 按 ERP 精度舍入后合计必须为 100。,allocated_percentage de sales_team debe sumar 100 después de redondear a la precisión de ERP.
+sales_team 销售人员为空或重复。,sales_team El vendedor está vacío o duplicado.
+source_organization 和 event_id 必须同时提供。,source_organization y event_id deben suministrarse juntos.
+targetCrmRevision 必须为正整数。,targetCrmRevision debe ser un número entero positivo.
+tax_amount 必须是有效金额。,tax_amount debe ser una cantidad válida.
+taxes 必须是数组。,los impuestos deben ser una matriz.
+warehouse {0} 不存在、已停用、是组仓库或不属于订单公司。,"El almacén {0} no existe, está desactivado, es un almacén de grupo o no pertenece a la empresa ordenante."
+warehouse {0} 与销售订单行仓库 {1} 冲突。,El almacén {0} entra en conflicto con el almacén de filas Pedido de Venta {1}.
+{0} source_currency 与订单币种不一致。,{0} source_currency no coincide con la moneda del pedido.
+{0} source_unit_price 与订单有效 net_rate 不一致。,{0} source_unit_price no coincide con el pedido válido net_rate.
+{0} 不能超过 140 个字符。,{0} no puede exceder los 140 caracteres.
+{0} 原生订单本币价格与汇率不一致。,{0} El precio en moneda local de la orden original no es coherente con el tipo de cambio.
+{0} 在业务时点原生库存为负，须先核对库存账。,{0} El inventario original es negativo en el momento de la actividad comercial y la cuenta de inventario debe conciliarse primero.
+{0} 库存不足 {1}，未授权成品临时补入库。,"{0} Inventario insuficiente {1}, se agregan temporalmente al almacén productos terminados no autorizados."
+{0} 必须是启用的库存销售物料，不能为模板、非库存或停用物料。,"{0} debe ser un artículo de venta de inventario habilitado y no puede ser un artículo de plantilla, que no sea de inventario o desactivado."
+{0} 必须是布尔值。,{0} debe ser un valor booleano.
+{0} 必须是有效的 YYYY-MM-DD 日期。,{0} debe ser una fecha válida YYYY-MM-DD.
+{0} 缺少有效的原生库存单位或 conversion_factor。,A {0} le falta un Unidad de Existencias o conversion_factor nativo válido.
+{0} 缺少有效的原生本币价格或单位换算。,A {0} le falta un precio de moneda local nativo válido o una conversión de unidades.
+{0} 补入库缺少 source_unit_price；缺失不能按零处理。,Falta {0} en la biblioteca agregada source_unit_price; los datos faltantes no pueden tratarse como cero.
+{0}: {1},{0}: {1}
+{0}: {1} · {2}: {3},{0}: {1} · {2}: {3}
+一条 ERP 明细不能绑定多个 crm_order_item_id。,Un detalle ERP no se puede vincular a varios crm_order_item_id.
+一条 ERP 订单明细不能绑定多个 crm_order_item_id。,Un detalle de pedido ERP no se puede vincular a varios crm_order_item_id.
+不允许通过该接口修改 docstatus。,No se permite la modificación del estado del documento a través de esta interfaz.
+不支持修改销售订单字段：{0}。,Modificación del campo Pedido de Venta: {0} no es compatible.
+不支持修改销售订单明细字段：{0}。,Modificación del campo de detalle Pedido de Venta: {0} no es compatible.
+仓库或付款条件已有下游关联，不能更改。,El almacén o las condiciones de pago ya tienen una asociación posterior y no se pueden cambiar.
+修订必须提供 expectedCrmRevision 和 targetCrmRevision。,Se deben proporcionar revisiones expectedCrmRevision y targetCrmRevision.
+修订请求必须包含 header、items 或 taxes。,"Las solicitudes de revisión deben contener encabezados, artículos o impuestos."
+公司 {0} 未启用 CRM 集成。,La integración de la empresa {0} CRM no está habilitada.
+公司本位币的 conversion_rate 必须为 1。,conversion_rate de la moneda local de la empresa debe ser 1.
+切换为外币时必须提供 conversion_rate。,Se requiere conversion_rate al cambiar a moneda extranjera.
+删除明细不能携带业务字段，且不能删除最后一行。,Los detalles de eliminación no pueden contener campos comerciales y la última fila no se puede eliminar.
+单位不存在：{0},La unidad no existe: {0}
+历史补全 ERP 销售订单可能触发已启用通知 {0}，须先确认无通知的完善方式。,La finalización del historial ERP Pedido de Venta puede activar la notificación habilitada {0}. Primero debe confirmar el método de finalización sin notificación.
+历史补建 ERP 销售订单会触发已启用通知 {0}；须先确认无通知的订单完善方式。,La adición histórica ERP Pedido de Venta activará la notificación habilitada {0}; Primero se debe confirmar el método de finalización del pedido sin notificación.
+原 ERP 单不是通过 CRM 审批撤回接口取消，不能自动重新提交。,El pedido ERP original no se canceló a través de la interfaz de retiro de aprobación CRM y no se puede volver a enviar automáticamente.
+原 ERP 销售订单尚未取消，不能重新提交。,El ERP Pedido de Venta original no ha sido cancelado y no se puede volver a enviar.
+原生补入行数与已预览方案不一致。,La cantidad de filas agregadas de forma nativa no coincide con la solución vista previa.
+原生补行改变了既有明细 {0}，已中止补全。,La finalización de la línea original cambió el detalle existente {0} y se detuvo la finalización.
+原生补行改变了既有订单商业或税务条件，已中止补全。,La reposición nativa ha cambiado las condiciones comerciales o fiscales del pedido existente y la reposición ha sido suspendida.
+只有已提交的销售订单可以驳回并取消。,Sólo se puede rechazar y cancelar el Pedido de Venta enviado.
+只有待确认定金的销售订单可以驳回。,Sólo se podrá rechazar Pedido de Venta pendiente de confirmación de depósito.
+同一 CRM 事件的来源内容已变化，不能复用原出库。,El contenido fuente del mismo evento CRM ha cambiado y la biblioteca original no se puede reutilizar.
+同一 CRM 明细不能在一次操作中重复。,No se puede repetir el mismo detalle CRM en una sola operación.
+存在不支持的明细字段：{0}。,Hay un campo de detalles no admitido: {0}.
+完整 CRM items manifest 包含不支持的行字段。,El manifiesto de elementos CRM completo contiene campos de fila no admitidos.
+完整 CRM manifest 与 ERP 订单存在待核对或待补明细。,El manifiesto CRM completo y el pedido ERP tienen detalles que deben verificarse o complementarse.
+定金确认正在后台同步 CRM 和 MES，暂时不能取消销售订单。,La confirmación del depósito sincroniza CRM y MES en segundo plano y Pedido de Venta no se puede cancelar temporalmente.
+已收定金订单的结构性修订需先完成财务处置。,Las revisiones estructurales de las órdenes para las cuales se han recibido depósitos requieren que primero se complete la disposición financiera.
+已有生产关联，不能更改仓库。,Ya existe una asociación de producción y el almacén no se puede cambiar.
+建单报文包含 ERP 内部控制字段。,El mensaje de establecimiento de pedido contiene el campo de control interno ERP.
+当前待生产、待尾款或其他流程状态，尚未满足出库条件：{0}。,"Actualmente pendiente de producción, pendiente de pago u otro estado del proceso, aún no se han cumplido las condiciones de entrega: {0}."
+当前没有有效订单。,Actualmente no hay pedidos activos.
+当前用户没有 CRM 接口调用权限。,El usuario actual no tiene la autoridad de llamada de interfaz CRM.
+当前订单存在重复 CRM 明细 ID，需人工处理。,"El pedido actual tiene un detalle CRM duplicado ID, que requiere procesamiento manual."
+必须提供真实业务 posting_date 和 posting_time。,Se deben proporcionar negocios reales posting_date y posting_time.
+成品补入库未授权或预览存在阻断。,El producto terminado no está autorizado a ser agregado al almacén o la vista previa está bloqueada.
+推送销售订单到 MES 需要安装 mes_integration 应用。,Para enviar Pedido de Venta a MES es necesario instalar la aplicación mes_integration.
+提交,Confirmar
+新事件执行必须提供 source_fingerprint 和 preview_fingerprint，请先预览。,La ejecución del nuevo evento debe proporcionar source_fingerprint y preview_fingerprint; primero obtenga una vista previa.
+新事件执行必须提供 {0}，人工批号不能作为事件唯一身份。,Se debe proporcionar {0} para la ejecución de un nuevo evento y el número de lote manual no se puede utilizar como identidad única del evento.
+新增 CRM 明细身份只能通过受控接口设置。,La identidad detallada del CRM agregado solo se puede configurar a través de la interfaz controlada.
+新增明细必须提供有效的非负 rate。,Los nuevos detalles deben proporcionar una tasa válida no negativa.
+新增明细的身份、物料或数量无效。,"La identidad, el material o la cantidad del detalle recién agregado no es válido."
+无法保存逐单确认记录，未执行放行。,El registro de confirmación orden por orden no se puede guardar y la liberación no se ejecuta.
+明细 {0} 当前物料为 {1}，与请求中的 item_code {2} 不一致。,"Detalle {0} El material actual es {1}, que no coincide con item_code {2} en la solicitud."
+明细 {0} 未提供需要修改的字段。,Detalle {0} no proporciona los campos que deben modificarse.
+明细 {0} 的修订后金额低于已开票金额。,El importe revisado del detalle {0} es inferior al importe facturado.
+明细已有下游数量，不能替换物料。,El detalle ya tiene una cantidad posterior y el material no se puede reemplazar.
+明细已有交付、生产或开票关联，不能删除。,"El detalle ya está asociado con la entrega, la producción o la facturación y no se puede eliminar."
+更正销售订单物料或版本时必须传明细 name，不能只按 item_code 定位。,"Al corregir el material o la versión Pedido de Venta, se debe pasar el nombre detallado y no se puede colocar solo en item_code."
+未找到 CRM 销售订单号 {0} 对应的销售订单。,CRM Pedido de Venta No se encontró el número {0} correspondiente a Pedido de Venta.
+未找到持久操作记录，请核对订单当前状态后使用原 operationId 重试。,No se encontró ningún registro de operación persistente. Verifique el estado actual del pedido e intente nuevamente usando el operationId original.
+未找到销售订单 {0}。,Pedido de Venta {0} no encontrado.
+未提供,No proporcionado
+未设置,Sin configurar
+本 CRM 事件对应的销售出库已取消。,El Nota de Entrega correspondiente a este evento CRM ha sido cancelado.
+查询补全回执必须使用 complete_missing_items mode。,El recibo de finalización de la consulta debe utilizar el modo complete_missing_items.
+每条明细必须指定 ADD、UPDATE 或 DELETE。,"Cada detalle debe especificar ADD, UPDATE o DELETE."
+每条明细必须提供 crmOrderItemId。,Se debe proporcionar crmOrderItemId para cada detalle.
+物料 {0} 的 CRM UOM {1} 缺少原生 Item 换算证明。,CRM UOM {1} del material {0} carece del certificado de conversión de artículo nativo.
+物料 {0} 的 warehouse 不存在、停用、为组仓库或公司不一致。,"El almacén de material {0} no existe, está deshabilitado, es un almacén grupal o la empresa es inconsistente."
+物料 {0} 的原生仓库默认值与公司 ItemDefault/SO header 不一致。,El valor predeterminado del almacén nativo del material {0} no es coherente con el encabezado ItemDefault/SO de la empresa.
+物料 {0} 缺少唯一公司 ItemDefault 或 SO header warehouse。,Al material {0} le falta el almacén de cabecera único ItemDefault de la empresa o SO.
+物料已创建。,El material ha sido creado.
+物料已存在。,El material ya existe.
+物料组 {0} 是父级分组，请选择叶子分组。,"Grupo de Artículos {0} es el grupo principal, seleccione el grupo hoja."
+物料组不存在：{0},El grupo de artículos no existe: {0}
+现有 ERP 明细 {0} 无法唯一对应 CRM manifest，禁止追加替代行或重复数量。,El detalle ERP existente {0} no puede corresponder de forma única al manifiesto CRM y está prohibido agregar líneas de reemplazo o duplicar cantidades.
+现有 ERP 明细 {0} 的 CRM 行绑定缺失或重复，禁止追加替代行。,"Falta el enlace de fila CRM del detalle ERP existente {0} o está duplicado, y está prohibido agregar filas de reemplazo."
+现有 ERP 明细 {0} 虽已绑定 CRM 行，但编码、版本、数量、价格或单位已冲突，禁止追加替代行。,"Aunque el detalle ERP existente {0} se ha vinculado a la fila CRM, el código, la versión, la cantidad, el precio o la unidad entran en conflicto y está prohibido agregar una fila de reemplazo."
+生产进度回传 traceId 不能超过 {0} 个字符。,El retorno del progreso de producción traceId no puede exceder los caracteres {0}.
+生产进度回传缺少 CRM 订单号或生产批次号，无法生成 traceId。,"A la devolución del progreso de producción le falta el número de pedido CRM o el número de lote de producción, y no se puede generar traceId."
+生产里程碑由 ERP 管理，建单请求不能直接设置。,Los hitos de producción los gestiona ERP y las solicitudes de creación de pedidos no se pueden configurar directamente.
+第 {0} 行 crm_order_item_id 与销售订单明细不匹配。,"Los detalles de las filas {0}, crm_order_item_id y Pedido de Venta no coinciden."
+第 {0} 行 crm_order_item_id 未唯一对应销售订单明细。,"La línea {0}, crm_order_item_id, no corresponde únicamente al detalle Pedido de Venta."
+第 {0} 行 uom 与销售订单明细不匹配。,La línea {0} uom no coincide con los detalles de Pedido de Venta.
+第 {0} 行对应多条订单明细，请传 sales_order_item 或 crm_order_item_id。,"La línea {0} corresponde a múltiples detalles del pedido, envíe sales_order_item o crm_order_item_id."
+第 {0} 行执行必须提供 {1}；custom_version 可显式为空。,La ejecución en la línea {0} debe proporcionar {1}; custom_version puede estar explícitamente vacío.
+缺少 CRM 发货单号字段，请先执行 bench migrate。,Falta el campo del número de factura CRM. Primero ejecute la migración en banco.
+缺少 crm_order_no。,Falta crm_order_no.
+缺少 operation_id。,Falta operation_id.
+缺少已核对的临时估值，不能补入库。,Falta valoración provisional verificada y no se puede añadir a la base de datos.
+缺少必填字段：custom_crm_order_no,Falta campo obligatorio: custom_crm_order_no
+缺少必填字段：custom_crm_shipment_no,Falta campo obligatorio: custom_crm_shipment_no
+缺少必填字段：customer,Falta campo obligatorio: cliente
+缺少必填字段：item_code,Falta campo obligatorio: item_code
+缺少必填字段：item_group,Falta campo obligatorio: item_group
+缺少必填字段：item_name,Falta campo obligatorio: item_name
+缺少必填字段：stock_uom,Falta campo obligatorio: stock_uom
+缺少必填字段：{0},Falta campo obligatorio: {0}
+缺少销售出库明细：items,Faltan detalles de Nota de Entrega: elementos
+缺少销售订单明细：items,Faltan detalles de Pedido de Venta: elementos
+补入物料 {0} 不存在，须先维护原生 Item。,El material agregado {0} no existe y primero se debe mantener el artículo original.
+补入物料 {0} 存在 Item 税务模板，无法证明与 CRM VAT 一致。,El material agregado {0} existe en la plantilla de impuestos del artículo y no se puede demostrar que sea consistente con CRM VAT.
+补入物料 {0} 必须是启用的库存销售 Item。,El material de reposición {0} debe ser un artículo de ventas de inventario habilitado.
+补入行 {0} 的 {1} 与已预览方案不一致。,El {1} de la línea agregada {0} no coincide con el plan previsto.
+补入行有效 net_rate 与 CRM price 不一致。,La línea de entrada es válida net_rate y el precio de CRM es inconsistente.
+补全 completion_fingerprint 存在重复回执，须人工核对。,"Hay recibos duplicados al completar completion_fingerprint, que deben verificarse manualmente."
+补全回执与完整 CRM manifest 或订单身份冲突，禁止重复写入。,"El recibo de finalización entra en conflicto con el manifiesto CRM completo o la identidad del pedido, y se prohíbe la escritura repetida."
+补全回执保存失败，原生补行已中止；请勿将本次操作视为成功。,No se pudo guardar el recibo de finalización y se canceló la finalización nativa; No considere esta operación como un éxito.
+补全必须提供 completion_fingerprint，请先预览。,La finalización debe proporcionar completion_fingerprint; primero obtenga una vista previa.
+补全必须提供完整 CRM items manifest。,La finalización debe proporcionar el manifiesto de elementos CRM completo.
+补全必须提供完整的 CRM items manifest。,La finalización debe proporcionar el manifiesto de elementos CRM completo.
+补全明细不支持字段：{0}。,No se admiten detalles de finalización de campo: {0}.
+表头税费只支持带 account_head 的 Actual 行。,El encabezado de impuestos solo admite filas reales con account_head.
+订单 header discount 会重新分摊既有行有效价格，不能自动补全。,El descuento del encabezado del pedido reasignará el precio efectivo de la fila existente y no se puede completar automáticamente.
+订单公司未启用 CRM 集成。,La integración CRM no está habilitada para la empresa del pedido.
+订单已有定金或生产关联，不能撤回。,El pedido tiene un depósito o producción asociado y no se puede retirar.
+订单已有收款或开票关联，不能修改币种、汇率或表头税费。,"El pedido se ha asociado al pago o facturación y no se puede modificar la moneda, el tipo de cambio ni el impuesto de cabecera."
+订单已有税表（含 Actual 税额），无法证明补行后原有效价格与税额不变。,El pedido ya tiene un formulario de impuestos (incluido el monto del impuesto real) y no se puede demostrar que el precio efectivo original y el monto del impuesto no cambiarán después de la reemisión.
+订单已有采购关联，不能更改订单结构。,El pedido ya tiene una asociación de compra y la estructura del pedido no se puede cambiar.
+订单已有销售发票，不能修改销售团队。,El pedido ya tiene factura de venta y el equipo comercial no se puede modificar.
+订单或完整 CRM manifest 已变化，请重新预览后补全。,El pedido o el manifiesto CRM completo ha cambiado; obtenga una vista previa nuevamente y complételo.
+订单金额或币种发生变化，固定金额付款计划无法自动重算；请先更换付款条件。,"Si el monto del pedido o la moneda cambian, el plan de pago de monto fijo no se puede recalcular automáticamente; primero cambie las condiciones de pago."
+该 CRM 订单仍有有效 ERP 订单，不能重新提交。,El pedido CRM sigue siendo válido como pedido ERP y no se puede volver a enviar.
+该 CRM 订单号已有 ERP 历史单；请先查询订单状态，不要重复首次建单。,Este número de pedido CRM ya tiene un pedido histórico de ERP; Verifique primero el estado del pedido y no vuelva a crear el pedido por primera vez.
+该接口只支持修改 Sales Order。,Esta interfaz solo admite la modificación de la Orden de venta.
+该接口只支持创建 Sales Order。,Esta interfaz solo admite la creación de pedidos de ventas.
+请使用 custom_crm_order_no 定位销售订单，不要传 name。,"Utilice custom_crm_order_no para localizar Pedido de Venta, no pase el nombre."
+请求体不能直接传 docstatus，请由接口自动提交销售订单。,El cuerpo de la solicitud no se puede pasar directamente a docstatus. Envíe Pedido de Venta automáticamente a través de la interfaz.
+请求体必须是 JSON 对象。,El cuerpo de la solicitud debe ser un objeto JSON.
+重新提交不得更改原订单日期。,Los nuevos envíos no pueden cambiar la fecha del pedido original.
+重新提交必须包含 salesOrder 对象。,Los nuevos envíos deben contener el objeto salesOrder.
+重新提交必须提供 targetCrmRevision。,Los nuevos envíos deben proporcionar targetCrmRevision.
+重新提交报文包含 ERP 内部控制字段。,El mensaje de reenvío contiene el campo de control interno ERP.
+重新提交的 CRM 内容版本必须大于原版本。,La versión del contenido reenviado de CRM debe ser mayor que la versión original.
+重新提交的 CRM 号、公司或客户与历史订单不一致。,"El número, la empresa o el cliente CRM reenviado no coincide con el pedido histórico."
+重新提交的 CRM 审批轮次必须大于原轮次。,La ronda de aprobación de CRM reenviada debe ser mayor que la ronda original.
+重新提交的每条明细必须有唯一 custom_crm_order_item_id。,Cada detalle reenviado debe tener un custom_crm_order_item_id único.
+销售人员 {0} 不存在或未启用。,El vendedor {0} no existe o no está habilitado.
+销售人员 {0} 是分组，不能加入销售团队。,El vendedor {0} es un grupo y no puede unirse al equipo de ventas.
+销售出库 {0} 已取消，ERP流程状态：{1},"Nota de Entrega {0} Cancelado, estado del proceso ERP: {1}"
+销售出库 {0} 已提交，ERP流程状态：{1},"Nota de Entrega {0} Enviado, estado del proceso ERP: {1}"
+销售出库已在 ERP 提交并完成库存扣减。,Nota de Entrega envió y completó la deducción de inventario en ERP.
+销售出库第 {0} 行 custom_version 不能超过 64 个字符。,La línea Nota de Entrega {0} custom_version no puede exceder los 64 caracteres.
+销售出库第 {0} 行 custom_version 与销售订单明细不匹配。,Los detalles de la fila {0} de Nota de Entrega no coinciden con custom_version y Pedido de Venta.
+销售出库第 {0} 行 custom_version 必须是字符串。,Línea Nota de Entrega {0} custom_version debe ser una cadena.
+销售出库第 {0} 行 item_code 与 sales_order_item 不匹配。,La línea Nota de Entrega {0} no coincide con item_code y sales_order_item.
+销售出库第 {0} 行 qty 必须大于 0。,La cantidad de la línea Nota de Entrega {0} debe ser mayor que 0.
+销售出库第 {0} 行必须提供 crm_order_item_id 或 sales_order_item。,Nota de Entrega La línea {0} debe proporcionar crm_order_item_id o sales_order_item.
+销售出库第 {0} 行数量超过销售订单剩余可出库数量。,La cantidad de la fila Nota de Entrega {0} excede la cantidad restante que se puede enviar desde Pedido de Venta.
+销售出库第 {0} 行未找到可出库的销售订单明细。,Fila de entrega {0}: No se encontró ninguna línea del pedido de venta disponible para entrega.
+销售出库第 {0} 行物料 {1} 对应多个版本，请传 custom_version 或 sales_order_item。,"Nota de Entrega {0} material de línea {1} corresponde a múltiples versiones, envíe custom_version o sales_order_item."
+销售出库第 {0} 行缺少 item_code 或 sales_order_item。,Falta la línea Nota de Entrega {0} item_code o sales_order_item.
+销售订单 {0} 当前流程状态为 {1}，不允许执行 CRM 发货。,Pedido de Venta {0} El estado actual del proceso es {1} y no se permite el envío de CRM.
+销售订单 {0} 当前状态为 {1}，只有生产中及之前的状态允许修改。,Pedido de Venta {0} El estado actual es {1}. Sólo se permite modificar el estado durante la producción y antes.
+销售订单 {0} 当前状态为 {1}，物料或版本只能在推送 MES 前更正。,Pedido de Venta {0} El estado actual es {1} y el material o la versión solo se pueden corregir antes de presionar MES.
+销售订单 {0} 必须已提交。,Se debe haber enviado Pedido de Venta {0}.
+销售订单中未找到明细 {0}。,Detalle {0} no encontrado en Pedido de Venta.
+销售订单已关闭、取消或暂停。,"Pedido de Venta ha sido cerrado, cancelado o suspendido."
+销售订单已创建并提交。,Pedido de Venta ha sido creado y enviado.
+销售订单已存在，本次请求按幂等方式返回原单据。,Pedido de Venta ya existe. Esta solicitud devuelve el documento original de forma idempotente.
+销售订单已更新。,Pedido de Venta ha sido actualizado.
+销售订单已经完成定金确认同步。,Pedido de Venta ha completado la sincronización de la confirmación del depósito.
+销售订单已驳回并取消。,Pedido de Venta ha sido rechazado y cancelado.
+销售订单当前原生状态不允许补全明细。,Pedido de VentaEl estado nativo actual no permite completar detalles.
+销售订单明细 {0} 已产生下游数量，不能替换物料或版本：{1}。,Pedido de Venta detalles {0} La cantidad posterior se ha generado y no puede reemplazar el material o la versión: {1}.
+销售订单明细 {0} 缺少 warehouse，须先维护原生仓库。,Detalles de Pedido de Venta {0} carece de almacén y primero se debe mantener el almacén original.
+销售订单缺失明细已补全。,Se han completado los detalles que faltaban de Pedido de Venta.
+预览后来源、订单或库存已变化，请重新预览。,"Si la fuente, el pedido o el inventario han cambiado después de la vista previa, vuelva a obtener una vista previa."
+首次建单必须提供 salesOrder 和 targetCrmRevision。,Se deben proporcionar salesOrder y targetCrmRevision al realizar un pedido por primera vez.
+首次建单的每条明细必须有唯一 custom_crm_order_item_id。,Cada detalle de la creación del primer pedido debe tener un custom_crm_order_item_id único.
+crm推送日志,Registros de envío de CRM
+销售出库,Nota de entrega

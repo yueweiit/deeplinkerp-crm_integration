@@ -825,7 +825,7 @@ def get_operation_result(operation_id, crm_order_no=None):
 	if not row:
 		# An uncommitted request may still arrive; absence alone cannot prove NOT_EXECUTED.
 		response = {"operationId": operation_id, "operationStatus": "UNKNOWN", "sideEffects": None,
-			"retryable": False, "message": "未找到持久操作记录，请核对订单当前状态后使用原 operationId 重试。"}
+			"retryable": False, "message": _("未找到持久操作记录，请核对订单当前状态后使用原 operationId 重试。")}
 		if crm_order_no:
 			try:
 				current, history = current_order(crm_order_no)

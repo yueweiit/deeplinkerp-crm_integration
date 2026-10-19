@@ -6,7 +6,7 @@
 	"use strict";
 	const API = "crm_integration.crm_integration.finance_release.";
 	const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
-	const t = (value, args) => (root.__ || ((x, values = []) => x.replace(/\{(\d+)\}/g, (_, i) => values[i] ?? "")))(value, args);
+	const t = (value, args = []) => String((root.__ || (text => text))(value)).replace(/\{(\d+)\}/g, (_, i) => args[i] ?? "");
 	const buttonLabel = count => count === 1 ? t("允许生产（1单）") : t("允许生产（{0}单）", [count]);
 	const link = (type, name) => `<a href="/desk/${type}/${encodeURIComponent(name)}">${esc(name)}</a>`;
 	const money = (value, currency) => `${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${esc(currency || "")}`;
@@ -43,7 +43,7 @@
 		function paint() {
 			panel.find(".crm-release-table").html(`<table class="table"><thead><tr>${["订单 / 客户", "ERP 订单金额", "关联收款（分配额 / 账户币种）", "核验与同步结果"].map(label => `<th>${esc(t(label))}</th>`).join("")}</tr></thead><tbody>${rowsHTML(review)}</tbody></table>`);
 			const eligible = eligibleNames(review);
-			panel.find(".crm-release-count").text(`${t("可确认")}: ${eligible.length} · ${t("暂不可处理")}: ${review.length - eligible.length}`);
+			panel.find(".crm-release-count").text(t("{0}: {1} · {2}: {3}", [t("可确认"), eligible.length, t("暂不可处理"), review.length - eligible.length]));
 			panel.find(".crm-release-confirm").text(buttonLabel(eligible.length)).prop("disabled", busy || !eligible.length || results.length > 0);
 			panel.find(".crm-release-retry").prop("hidden", !retryNames(results).length);
 		}

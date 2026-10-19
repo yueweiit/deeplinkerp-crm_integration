@@ -1,0 +1,353 @@
+Actual 税费行字段无效或缺少 tax_amount。,Actual tax line field is invalid or missing tax_amount.
+CRM manifest 第 {0} 行 quantity 必须为正数。,CRM manifest line {0} quantity must be a positive number.
+CRM manifest 第 {0} 行 version 必须明确提供字符串（无版本用空字符串），且不能超过 64 字符。,CRM manifest line {0} The version string must be provided explicitly (use an empty string if no version) and cannot exceed 64 characters.
+CRM manifest 第 {0} 行包含不支持的字段或不是对象。,CRM Manifest line {0} contains an unsupported field or is not an object.
+CRM manifest 第 {0} 行缺少唯一 id、itemCode、unit 或 id 重复。,"CRM manifest line {0} is missing a unique id, itemCode, unit, or a duplicate id."
+CRM manifest 第 {0} 行缺少有效 price；缺失价格不能视为零。,CRM Manifest row {0} is missing a valid price; the missing price cannot be considered zero.
+CRM 内容版本不匹配。,CRM Content version mismatch.
+CRM 内容版本不能为负数。,CRM Content version cannot be negative.
+CRM 发货单号 {0} 对应的 ERP 销售出库已取消。,CRM delivery order number {0} corresponding to ERP Delivery Note has been cancelled.
+CRM 发货单号 {0} 已对应多张 ERP 销售出库。,CRM delivery order number {0} has corresponded to multiple ERP Delivery Note.
+CRM 发货单号 {0} 正在处理中，请稍后重试。,"CRM Shipping order number {0} is being processed, please try again later."
+CRM 发货单已处理，本次请求按幂等方式返回原销售出库。,"The CRM delivery order has been processed, and this request returns the original Delivery Note in an idempotent manner."
+CRM 发货单幂等编号冲突,CRM Invoice idempotent number conflict
+CRM 审批轮次不匹配。,CRM Approval rounds do not match.
+CRM 待补明细存在重复、歧义行，须先建立唯一现有行绑定。,"CRM There are duplicate or ambiguous rows in the details to be supplemented, and a unique existing row binding must be established first."
+CRM 待补明细换算为原生 UOM 后存在重复、歧义行。,There are duplicate and ambiguous rows after the CRM to-be-supplied details are converted into native UOM.
+CRM 成品短缺临时补入库，按订单有效单价折算本币及库存单位临时估值；不代表实际生产成本。事件：{0},"CRM finished goods are temporarily replenished into the warehouse due to shortage, and the local currency is converted according to the effective unit price of the order and the temporary valuation of Stock UOM is not representative of the actual production cost. Event: {0}"
+CRM 明细 ID 已绑定其他 ERP 明细。,CRM detail ID has been bound to other ERP detail.
+CRM 明细身份只能通过受控接口修改。,CRM detailed identity can only be modified through the controlled interface.
+CRM 来源内容与 source_fingerprint 不一致，请重新预览。,"The source content of CRM is inconsistent with source_fingerprint, please preview again."
+CRM 状态推送失败,CRM status push failed
+CRM 状态推送失败：{0},CRM Status push failed: {0}
+CRM 目标版本必须比预期版本增加 1。,CRM The target version must be increased by 1 from the expected version.
+CRM 稳定订单 ID 不匹配。,CRM stable order ID does not match.
+CRM 稳定订单 ID 与当前有效订单不匹配。,CRM Stable order ID does not match the currently active order.
+CRM 行 {0} VAT 缺失或非零，无法无歧义沿用原生税务处理。,"CRM rows {0} VAT are missing or non-zero, and the native tax treatment cannot be inherited unambiguously."
+CRM 订单号 {0} 仍存在有效或草稿销售订单 {1}。,CRM Order number {0} is still valid or draft Sales Order {1}.
+CRM 订单号 {0} 对应多张已提交订单，需人工处理。,CRM Order number {0} corresponds to multiple submitted orders and requires manual processing.
+CRM 订单身份与版本只能通过受控接口修改：{0}。,CRM The order identity and version can only be modified through the controlled interface: {0}.
+CRM 订单身份在加锁前已变化，请重新预览。,"CRM The order identity has changed before locking, please preview again."
+CRM 销售出库必须且只能关联一张销售订单。,CRM Delivery Note must and can only be associated with one Sales Order.
+CRM 销售订单号 {0} 只有历史或草稿单；重新提交请使用专用接口。,CRM Sales Order No. {0} only has history or draft orders; please use the dedicated interface to resubmit.
+CRM 销售订单号 {0} 对应多笔有效销售订单。,CRM Sales Order number {0} corresponds to multiple valid Sales Order.
+CRM 销售订单号 {0} 对应多笔有效销售订单，无法安全修改。,CRM Sales Order number {0} corresponds to multiple valid Sales Order and cannot be modified safely.
+CRM 销售订单号 {0} 已存在，但对应销售订单不是已提交状态。,"CRM Sales Order number {0} already exists, but the corresponding Sales Order is not in the submitted status."
+CRM 销售订单号 {0} 已对应多笔有效销售订单，请先处理重复数据。,"CRM Sales Order number {0} has corresponded to multiple valid Sales Order, please process the duplicate data first."
+CRM 销售订单号 {0} 已被其他公司使用。,CRM Sales Order number {0} has been used by other companies.
+CRM 销售订单号 {0} 已被销售订单 {1} 使用。,CRM Sales Order number {0} has been used by Sales Order {1}.
+CRM 销售订单号 {0} 必须唯一对应一笔有效销售订单。,CRM Sales Order number {0} must uniquely correspond to a valid Sales Order.
+CRM 销售订单号 {0} 正在处理中，请稍后重试。,"CRM Sales Order number {0} is being processed, please try again later."
+CRM/ERP 明细身份不匹配。,CRM/ERP detailed identities do not match.
+CRM/MES 同步处理中,CRM/MES is being synchronized
+CRM/MES 同步处理中，请勿重复确认。,"CRM/MES is being synchronized, please do not confirm again."
+ERP 保存后的表头交期与请求不一致，请核对明细交期。,ERP The saved header delivery date is inconsistent with the request. Please check the detailed delivery date.
+ERP 单号与当前有效 CRM 订单不匹配。,The ERP order number does not match the currently valid CRM order.
+ERP 版本已改变，请重新查询订单。,"ERP version has changed, please check the order again."
+ERP 订单不存在或版本已改变，请重新查询。,"ERP The order does not exist or the version has changed, please query again."
+ERP 订单金额,ERP order amount
+ERP 销售出库 {0} 关联的销售订单与本次请求不一致。,ERP Delivery Note {0} The associated Sales Order is inconsistent with this request.
+ERP 销售出库 {0} 已绑定其他 CRM 发货单号。,ERP Delivery Note {0} has been bound to other CRM delivery order numbers.
+ERP 销售出库 {0} 的仓库、批次或序列号与本次 CRM 发货不一致。,"The warehouse, batch or serial number of ERP Delivery Note {0} is inconsistent with this CRM shipment."
+ERP 销售出库 {0} 的明细与本次 CRM 发货数量不一致。,The details of ERP Delivery Note {0} are inconsistent with the quantity of CRM shipped this time.
+ERP 销售订单 {0} 与 CRM 订单号 {1} 不匹配。,ERP Sales Order {0} does not match CRM order number {1}.
+MES 下推存在结果或结果未知，不能更改仓库。,"MES There are results in the pushdown or the results are unknown, and the warehouse cannot be changed."
+MES 销售订单推送失败,MES Sales Order push failed
+MES 销售订单推送失败。,MES Sales Order push failed.
+MES 销售订单推送失败：{0},MES Sales Order Push failed: {0}
+MES 销售订单推送接口响应格式异常。,MES Sales Order The push interface response format is abnormal.
+SO 缺少 delivery_date，不能为补行编造日期。,"SO Missing delivery_date, the date cannot be made for the filler line."
+STRUCTURAL_CHANGE_BLOCKED: 已推送 MES 或已有生产/库存预留关联，不能更改订单结构。,"STRUCTURAL_CHANGE_BLOCKED: MES has been pushed or has a production/inventory reservation association, and the order structure cannot be changed."
+UPDATE 明细至少需要一个变更字段。,The UPDATE detail requires at least one change field.
+allocated_percentage 必须在 0 到 100 之间。,allocated_percentage must be between 0 and 100.
+conversion_rate 必须大于 0。,conversion_rate must be greater than 0.
+crmApprovalRound 必须为正整数。,crmApprovalRound must be a positive integer.
+crm_order_item_id 不能绑定多条 ERP 明细。,crm_order_item_id cannot be bound to multiple ERP details.
+crm_order_item_id 已绑定其他 ERP 明细。,crm_order_item_id has been bound to other ERP details.
+crm_order_item_id 已绑定其他来源明细。,crm_order_item_id has been bound to other source details.
+currency 必须是有效币种代码。,currency must be a valid currency code.
+custom_crm_shipment_no 不能超过 140 个字符。,custom_crm_shipment_no cannot exceed 140 characters.
+custom_item_tax_amount 必须是有限的非负金额。,"custom_item_tax_amount must be a finite, non-negative amount."
+custom_mes_route_scenario 必须是不超过 64 个字符的字符串。,custom_mes_route_scenario must be a string of no more than 64 characters.
+custom_version 最长为 64 个字符。,custom_version can be up to 64 characters long.
+delivery_note 参数已停用，请由 CRM 提供发货明细，ERP 将直接创建并提交销售出库。,The delivery_note parameter has been disabled. Please provide shipping details from CRM. ERP will directly create and submit Delivery Note.
+header 含有不支持的字段：{0}。,The header contains an unsupported field: {0}.
+header 必须是对象。,header must be an object.
+header.delivery_date 不能为空。,header.delivery_date cannot be empty.
+header.delivery_date 必须等于修订后明细的最晚交期。,header.delivery_date must equal the latest delivery date of the revised details.
+historical_replay 必须是布尔值。,historical_replay must be a Boolean value.
+items 中的每一项必须是对象。,Each item in items must be an object.
+items 中第 {0} 项必须是对象。,Item {0} in items must be an object.
+items 必须是数组。,items must be an array.
+items 必须是非空数组。,items must be a non-empty array.
+new_item_code 不能为空。,new_item_code cannot be empty.
+operationId 不能超过 140 个字符。,operationId cannot exceed 140 characters.
+operationId 与 CRM 订单号不匹配。,operationId and CRM order numbers do not match.
+operationId 已用于另一份请求报文。,operationId has been used in another request message.
+operationType 必须为 {0}。,operationType must be {0}.
+operator.id 为必填。,operator.id is required.
+qty 不得小于已交付数量。,qty must not be less than the delivered quantity.
+qty 必须大于 0。,qty must be greater than 0.
+reason 为必填。,reason is required.
+salesOrder 的 CRM 号或公司无效。,The CRM number or company of salesOrder is invalid.
+sales_order 和 custom_crm_order_no 至少需要提供一个。,At least one of sales_order and custom_crm_order_no needs to be provided.
+sales_team 必须是数组。,sales_team must be an array.
+sales_team 每行只需 sales_person 和 allocated_percentage。,sales_team Just sales_person and allocated_percentage per row.
+sales_team 的 allocated_percentage 按 ERP 精度舍入后合计必须为 100。,allocated_percentage of sales_team must add up to 100 after rounding to ERP precision.
+sales_team 销售人员为空或重复。,sales_team Salesperson is empty or duplicate.
+source_organization 和 event_id 必须同时提供。,source_organization and event_id must be supplied together.
+targetCrmRevision 必须为正整数。,targetCrmRevision must be a positive integer.
+tax_amount 必须是有效金额。,tax_amount must be a valid amount.
+taxes 必须是数组。,taxes must be an array.
+warehouse {0} 不存在、已停用、是组仓库或不属于订单公司。,"warehouse {0} does not exist, is deactivated, is a group warehouse, or does not belong to the ordering company."
+warehouse {0} 与销售订单行仓库 {1} 冲突。,warehouse {0} conflicts with Sales Order row warehouse {1}.
+{0} source_currency 与订单币种不一致。,{0} source_currency is inconsistent with the order currency.
+{0} source_unit_price 与订单有效 net_rate 不一致。,{0} source_unit_price is inconsistent with order valid net_rate.
+{0} 不能超过 140 个字符。,{0} cannot exceed 140 characters.
+{0} 原生订单本币价格与汇率不一致。,{0} The local currency price of the original order is inconsistent with the exchange rate.
+{0} 在业务时点原生库存为负，须先核对库存账。,"{0} The original inventory is negative at the time of business, and the inventory account must be reconciled first."
+{0} 库存不足 {1}，未授权成品临时补入库。,"{0} Insufficient inventory {1}, unauthorized finished products are temporarily added to the warehouse."
+{0} 必须是启用的库存销售物料，不能为模板、非库存或停用物料。,"{0} must be an enabled inventory sales item and cannot be a template, non-inventory, or deactivated item."
+{0} 必须是布尔值。,{0} must be a Boolean value.
+{0} 必须是有效的 YYYY-MM-DD 日期。,{0} must be a valid YYYY-MM-DD date.
+{0} 缺少有效的原生库存单位或 conversion_factor。,{0} is missing a valid native Stock UOM or conversion_factor.
+{0} 缺少有效的原生本币价格或单位换算。,{0} is missing a valid native local currency price or unit conversion.
+{0} 补入库缺少 source_unit_price；缺失不能按零处理。,{0} is missing from the added library source_unit_price; missing data cannot be treated as zero.
+{0}，错误码：{1},"{0}, error code: {1}"
+一条 ERP 明细不能绑定多个 crm_order_item_id。,A ERP detail cannot be bound to multiple crm_order_item_id.
+一条 ERP 订单明细不能绑定多个 crm_order_item_id。,One ERP order detail cannot be bound to multiple crm_order_item_id.
+下方只显示系统中可见的收款凭证分配记录；未录入或不可见不代表未收款。,Only the distribution record of payment Voucher visible in the system is displayed below; not being entered or visible does not mean that payment has not been received.
+不允许通过该接口修改 docstatus。,Modification of docstatus via this interface is not allowed.
+不可处理,Unprocessable
+不支持修改销售订单字段：{0}。,Modification of the Sales Order field: {0} is not supported.
+不支持修改销售订单明细字段：{0}。,Modification of the Sales Order detail field: {0} is not supported.
+业务员,salesman
+业务状态由财务确认和 CRM/MES 同步流程更新，不能直接修改。,The business status is updated by the financial confirmation and CRM/MES synchronization processes and cannot be modified directly.
+产品,Products
+仅可放行已提交且未关闭、未取消、未暂停的订单。,"Only orders that have been submitted and have not been closed, canceled or suspended can be released."
+仅重新核验失败订单,Only recheck failed orders
+仓库或付款条件已有下游关联，不能更改。,The warehouse or payment terms already have a downstream association and cannot be changed.
+以下销售订单未放行发货，不能提交销售出库：<br>{0},"The following Sales Order has not been released for shipment, and Delivery Note cannot be submitted: <br>{0}"
+以下销售订单状态不允许创建或保存销售出库草稿：<br>{0},The following Sales Order status does not allow the creation or saving of Delivery Note drafts: <br>{0}
+保存并提交,Save and Submit
+修订必须提供 expectedCrmRevision 和 targetCrmRevision。,Revisions must be provided expectedCrmRevision and targetCrmRevision.
+修订请求必须包含 header、items 或 taxes。,"Revision requests must contain headers, items, or taxes."
+允许生产,allowed to produce
+允许生产（1单）,Production allowed (1 order)
+允许生产（{0}单）,Production allowed ({0} order)
+公司 {0} 未启用 CRM 集成。,Company {0} CRM integration is not enabled.
+公司本位币的 conversion_rate 必须为 1。,conversion_rate of the company's local currency must be 1.
+关联收款（分配额 / 账户币种）,Related Receipts (Allocation Amount/Account Currency)
+关闭,Close
+切换为外币时必须提供 conversion_rate。,conversion_rate is required when switching to foreign currency.
+删除明细不能携带业务字段，且不能删除最后一行。,"Deletion details cannot carry business fields, and the last row cannot be deleted."
+单位不存在：{0},Unit does not exist: {0}
+历史补全 ERP 销售订单可能触发已启用通知 {0}，须先确认无通知的完善方式。,Historical completion ERP Sales Order may trigger enabled notification {0}. You must first confirm the completion method without notification.
+历史补建 ERP 销售订单会触发已启用通知 {0}；须先确认无通知的订单完善方式。,Historical addition ERP Sales Order will trigger the enabled notification {0}; the order completion method without notification must be confirmed first.
+原 ERP 单不是通过 CRM 审批撤回接口取消，不能自动重新提交。,The original ERP order was not canceled through the CRM approval withdrawal interface and cannot be automatically resubmitted.
+原 ERP 销售订单尚未取消，不能重新提交。,The original ERP Sales Order has not been canceled and cannot be resubmitted.
+原生补入行数与已预览方案不一致。,The number of natively added rows is inconsistent with the previewed solution.
+原生补行改变了既有明细 {0}，已中止补全。,"The original line completion has changed the existing detail {0}, and the completion has been stopped."
+原生补行改变了既有订单商业或税务条件，已中止补全。,"Native replenishment has changed the commercial or tax conditions of the existing order, and the replenishment has been suspended."
+取消,Cancel
+只有已提交的销售订单可以驳回并取消。,Only submitted Sales Order can be rejected and canceled.
+只有待确认定金的销售订单可以推送至MES。,Only Sales Order whose deposit needs to be confirmed can be pushed to MES.
+只有待确认定金的销售订单可以驳回。,Only Sales Order pending confirmation of deposit can be rejected.
+只有流程状态为 Deliverable 或 Partially Delivered 的销售订单才可以创建销售出库。,Only Sales Order whose process status is Deliverable or Partially Delivered can create Delivery Note.
+可确认,Confirmable
+同一 CRM 事件的来源内容已变化，不能复用原出库。,The source content of the same CRM event has changed and the original library cannot be reused.
+同一 CRM 明细不能在一次操作中重复。,The same CRM detail cannot be repeated in one operation.
+同步失败，可重新核验后重试,"Synchronization failed, please re-verify and try again."
+响应未确认，请关闭后重新核验；处理中订单不会重复提交。,"The response is not confirmed, please close and recheck; orders in process will not be resubmitted."
+存在不支持的明细字段：{0}。,There is an unsupported detail field: {0}.
+完整 CRM items manifest 包含不支持的行字段。,Complete CRM items manifest contains unsupported row fields.
+完整 CRM manifest 与 ERP 订单存在待核对或待补明细。,The complete CRM manifest and ERP order have details to be verified or supplemented.
+定金已确认，销售订单已推送至MES。,The deposit has been confirmed and Sales Order has been pushed to MES.
+定金按线下约定人工判断；系统不计算应付定金或是否收足。,The deposit is determined manually according to the offline agreement; the system does not calculate the deposit payable or whether it has been collected in full.
+定金确认任务已提交，系统将在后台同步 CRM 和 MES。,"The deposit confirmation task has been submitted, and the system will synchronize CRM and MES in the background."
+定金确认任务正在后台处理，请勿重复提交。,"The deposit confirmation task is being processed in the background, please do not submit it again."
+定金确认正在后台同步 CRM 和 MES，暂时不能取消销售订单。,"The deposit confirmation is synchronizing CRM and MES in the background, and Sales Order cannot be canceled temporarily."
+尾款已核销，销售订单已放行发货。,"The final payment has been Reconciliation, and Sales Order has been released for shipment."
+已关闭的销售订单不能执行生产流程操作，请先重新打开订单。,The closed Sales Order cannot perform production process operations. Please reopen the order first.
+已取消,Cancelled
+已完成生产放行同步,Production release synchronization completed
+已提交,Submitted
+已收定金订单的结构性修订需先完成财务处置。,Structural revisions to orders for which deposits have been received require financial disposition to be completed first.
+已有生产关联，不能更改仓库。,There is already a production association and the warehouse cannot be changed.
+已驳回的销售订单不能提交。,The rejected Sales Order cannot be submitted.
+建单报文包含 ERP 内部控制字段。,The order establishment message contains the ERP internal control field.
+当前待生产、待尾款或其他流程状态，尚未满足出库条件：{0}。,"Currently pending production, pending payment, or other process status, the delivery conditions have not yet been met: {0}."
+当前没有有效订单。,There are currently no active orders.
+当前用户没有 CRM 接口调用权限。,The current user does not have the CRM interface calling authority.
+当前订单存在重复 CRM 明细 ID，需人工处理。,"The current order has duplicate CRM detail ID, which requires manual processing."
+待人工确认允许生产,Production is allowed after manual confirmation
+必须提供真实业务 posting_date 和 posting_time。,Real business posting_date and posting_time must be provided.
+成品补入库未授权或预览存在阻断。,The finished product is not authorized to be added to the warehouse or the preview is blocked.
+推送销售订单到 MES 需要安装 mes_integration 应用。,Pushing Sales Order to MES requires installing the mes_integration application.
+提交,Submit
+收款与订单的公司或客户关联异常，请先核对原生单据。,The relationship between the payment recipient and the company or customer of the order is abnormal. Please check the original document first.
+收款记录可能不完整,Payment records may be incomplete
+新事件执行必须提供 source_fingerprint 和 preview_fingerprint，请先预览。,"New event execution must provide source_fingerprint and preview_fingerprint, please preview first."
+新事件执行必须提供 {0}，人工批号不能作为事件唯一身份。,"{0} must be provided for new event execution, and the manual batch number cannot be used as the unique identity of the event."
+新增 CRM 明细身份只能通过受控接口设置。,Added CRM detailed identity can only be set through the controlled interface.
+新增明细必须提供有效的非负 rate。,New details must provide a valid non-negative rate.
+新增明细的身份、物料或数量无效。,"The identity, material or quantity of the newly added detail is invalid."
+无权读取放行所需的订单字段。,Not authorized to read order fields required for release.
+无法保存逐单确认记录，未执行放行。,The order-by-order confirmation record cannot be saved and release is not executed.
+无法创建销售出库,Unable to create Delivery Note
+无法读取核验结果，请刷新后重试。,"Unable to read verification results, please refresh and try again."
+明细 {0} 当前物料为 {1}，与请求中的 item_code {2} 不一致。,"Detail {0} The current material is {1}, which is inconsistent with item_code {2} in the request."
+明细 {0} 未提供需要修改的字段。,Detail {0} does not provide the fields that need to be modified.
+明细 {0} 的修订后金额低于已开票金额。,The revised amount of detail {0} is lower than the invoiced amount.
+明细已有下游数量，不能替换物料。,The detail already has a downstream quantity and the material cannot be replaced.
+明细已有交付、生产或开票关联，不能删除。,"The detail is already associated with delivery, production or invoicing and cannot be deleted."
+暂不可处理,Not available for processing yet
+更正销售订单物料或版本时必须传明细 name，不能只按 item_code 定位。,"When correcting the Sales Order material or version, the detailed name must be passed and cannot be positioned only by item_code."
+未找到 CRM 销售订单号 {0} 对应的销售订单。,CRM Sales Order number {0} corresponding to Sales Order was not found.
+未找到可见的关联收款记录,No visible associated payment record found
+未找到持久操作记录，请核对订单当前状态后使用原 operationId 重试。,"No persistent operation record found, please check the current status of the order and try again using the original operationId."
+未找到销售订单 {0}。,Sales Order {0} not found.
+未提供,Not provided
+未获得生产放行权限；管理员可在角色权限管理中配置。,The production release permission has not been obtained; the administrator can configure it in role permission management.
+未设置,not set
+本 CRM 事件对应的销售出库已取消。,The Delivery Note corresponding to this CRM event has been cancelled.
+本单当前不处于待财务放行状态。,This order is currently not in the pending Financial Release status.
+本单未完成确认，请重新核验后重试。,"This order has not been confirmed, please recheck and try again."
+查询补全回执必须使用 complete_missing_items mode。,Query completion receipt must use complete_missing_items mode.
+核销尾款,Reconciliation final payment
+核验与同步结果,Verification and synchronization results
+正在核销尾款...,In the final payment of Reconciliation...
+正在核验订单…,Verifying order...
+正在获取销售订单...,Obtaining Sales Order...
+正在驳回销售订单...,Rejecting Sales Order...
+每条明细必须指定 ADD、UPDATE 或 DELETE。,"Each detail must specify ADD, UPDATE, or DELETE."
+每条明细必须提供 crmOrderItemId。,crmOrderItemId must be provided for each detail.
+没有可用于生产计划的销售订单,There is no Sales Order available for production planning
+物料 {0} 的 CRM UOM {1} 缺少原生 Item 换算证明。,CRM UOM {1} of material {0} lacks the native Item conversion certificate.
+物料 {0} 的 warehouse 不存在、停用、为组仓库或公司不一致。,"The warehouse of material {0} does not exist, is disabled, is a group warehouse, or the company is inconsistent."
+物料 {0} 的原生仓库默认值与公司 ItemDefault/SO header 不一致。,The native warehouse default value of material {0} is inconsistent with the company ItemDefault/SO header.
+物料 {0} 缺少唯一公司 ItemDefault 或 SO header warehouse。,Material {0} is missing unique company ItemDefault or SO header warehouse.
+物料已创建。,The material has been created.
+物料已存在。,The material already exists.
+物料组 {0} 是父级分组，请选择叶子分组。,"Item Group {0} is the parent group, please select the leaf group."
+物料组不存在：{0},Item group does not exist: {0}
+现有 ERP 明细 {0} 无法唯一对应 CRM manifest，禁止追加替代行或重复数量。,"The existing ERP detail {0} cannot uniquely correspond to the CRM manifest, and it is prohibited to add replacement lines or duplicate quantities."
+现有 ERP 明细 {0} 的 CRM 行绑定缺失或重复，禁止追加替代行。,"The CRM row binding of the existing ERP detail {0} is missing or duplicated, and it is prohibited to add replacement rows."
+现有 ERP 明细 {0} 虽已绑定 CRM 行，但编码、版本、数量、价格或单位已冲突，禁止追加替代行。,"Although the existing ERP detail {0} has been bound to the CRM row, the code, version, quantity, price or unit conflict, and it is prohibited to add a replacement row."
+生产单据与销售订单的公司不一致。,The production documents are inconsistent with the company Sales Order.
+生产进度回传 traceId 不能超过 {0} 个字符。,The production progress return traceId cannot exceed {0} characters.
+生产进度回传缺少 CRM 订单号或生产批次号，无法生成 traceId。,"The production progress return is missing the CRM order number or production batch number, and traceId cannot be generated."
+生产里程碑由 ERP 管理，建单请求不能直接设置。,"Production milestones are managed by ERP, and order creation requests cannot be set directly."
+确认保存并提交此收付款凭证？,Confirm to save and submit this payment Voucher?
+确认核销尾款？{0}/{1},Confirm the final payment of Reconciliation? {0}/{1}
+确认驳回此销售订单？,Confirm to reject this Sales Order?
+第 {0} 行 crm_order_item_id 与销售订单明细不匹配。,"The details of row {0}, crm_order_item_id, and Sales Order do not match."
+第 {0} 行 crm_order_item_id 未唯一对应销售订单明细。,"Line {0}, crm_order_item_id, does not uniquely correspond to the Sales Order detail."
+第 {0} 行 uom 与销售订单明细不匹配。,Line {0} uom does not match the Sales Order details.
+第 {0} 行对应多条订单明细，请传 sales_order_item 或 crm_order_item_id。,"Line {0} corresponds to multiple order details, please send sales_order_item or crm_order_item_id."
+第 {0} 行执行必须提供 {1}；custom_version 可显式为空。,Execution at line {0} must provide {1}; custom_version can be explicitly empty.
+缺少 CRM 发货单号字段，请先执行 bench migrate。,"The CRM invoice number field is missing, please execute bench migrate first."
+缺少 CRM 状态推送接口配置：crm_status_api_key,Missing CRM status push interface configuration: crm_status_api_key
+缺少 CRM 状态推送接口配置：crm_status_api_url,Missing CRM status push interface configuration: crm_status_api_url
+缺少 CRM 订单编号，无法推送状态到 CRM。,The CRM order number is missing and the status cannot be pushed to CRM.
+缺少 CRM 订单编号，无法推送销售订单到 MES。,The CRM order number is missing and Sales Order cannot be pushed to MES.
+缺少 MES 推送接口配置：mes_push_authorization,Missing MES push interface configuration: mes_push_authorization
+缺少 MES 销售订单推送接口配置：mes_sales_order_push_url,Missing MES Sales Order push interface configuration: mes_sales_order_push_url
+缺少 crm_order_no。,Missing crm_order_no.
+缺少 operation_id。,Missing operation_id.
+缺少已核对的临时估值，不能补入库。,There is a lack of verified provisional valuation and cannot be added to the database.
+缺少必填字段：custom_crm_order_no,Missing required field: custom_crm_order_no
+缺少必填字段：custom_crm_shipment_no,Missing required field: custom_crm_shipment_no
+缺少必填字段：customer,Missing required field: customer
+缺少必填字段：item_code,Missing required field: item_code
+缺少必填字段：item_group,Missing required field: item_group
+缺少必填字段：item_name,Missing required field: item_name
+缺少必填字段：stock_uom,Missing required field: stock_uom
+缺少必填字段：{0},Missing required field: {0}
+缺少销售出库明细：items,Missing Delivery Note details: items
+缺少销售订单明细：items,Missing Sales Order details: items
+草稿,Draft
+补入物料 {0} 不存在，须先维护原生 Item。,"The added material {0} does not exist, and the original Item must be maintained first."
+补入物料 {0} 存在 Item 税务模板，无法证明与 CRM VAT 一致。,The added material {0} exists in the Item tax template and cannot be proven to be consistent with CRM VAT.
+补入物料 {0} 必须是启用的库存销售 Item。,Replenishment material {0} must be an enabled inventory sales Item.
+补入行 {0} 的 {1} 与已预览方案不一致。,The {1} of the added line {0} is inconsistent with the previewed plan.
+补入行有效 net_rate 与 CRM price 不一致。,The input line is valid net_rate and CRM price is inconsistent.
+补全 completion_fingerprint 存在重复回执，须人工核对。,"There are duplicate receipts in the completion of completion_fingerprint, which must be manually checked."
+补全回执与完整 CRM manifest 或订单身份冲突，禁止重复写入。,"The completion receipt conflicts with the complete CRM manifest or order identity, and repeated writing is prohibited."
+补全回执保存失败，原生补行已中止；请勿将本次操作视为成功。,The completion receipt failed to be saved and the native completion has been aborted; please do not regard this operation as a success.
+补全必须提供 completion_fingerprint，请先预览。,"Completion must provide completion_fingerprint, please preview first."
+补全必须提供完整 CRM items manifest。,Completion must provide the complete CRM items manifest.
+补全必须提供完整的 CRM items manifest。,Completion must provide the complete CRM items manifest.
+补全明细不支持字段：{0}。,Field completion details are not supported: {0}.
+表头税费只支持带 account_head 的 Actual 行。,The tax header only supports Actual rows with account_head.
+订单 / 客户,Order/Customer
+订单 header discount 会重新分摊既有行有效价格，不能自动补全。,The order header discount will re-allocate the effective price of the existing row and cannot be automatically completed.
+订单不存在或不在当前可见范围内。,The order does not exist or is not currently visible.
+订单公司未启用 CRM 集成。,CRM integration is not enabled for the order company.
+订单已有定金或生产关联，不能撤回。,The order has a deposit or production associated with it and cannot be withdrawn.
+订单已有收款或开票关联，不能修改币种、汇率或表头税费。,"The order has been associated with payment or invoicing, and the currency, exchange rate, or header tax cannot be modified."
+订单已有税表（含 Actual 税额），无法证明补行后原有效价格与税额不变。,"The order already has a tax form (including Actual tax amount), and it cannot be proven that the original effective price and tax amount will not change after re-issuing."
+订单已有采购关联，不能更改订单结构。,The order already has a purchasing association and the order structure cannot be changed.
+订单已有销售发票，不能修改销售团队。,The order already has a sales invoice and the sales team cannot be modified.
+订单或完整 CRM manifest 已变化，请重新预览后补全。,"The order or complete CRM manifest has changed, please preview it again and complete it."
+订单金额或币种发生变化，固定金额付款计划无法自动重算；请先更换付款条件。,"If the order amount or currency changes, the fixed amount payment plan cannot be automatically recalculated; please change the payment terms first."
+该 CRM 订单仍有有效 ERP 订单，不能重新提交。,The CRM order is still valid as the ERP order and cannot be resubmitted.
+该 CRM 订单号已有 ERP 历史单；请先查询订单状态，不要重复首次建单。,This CRM order number already has a historical order of ERP; please check the order status first and do not create the order again for the first time.
+该公司未启用 CRM 集成。,The company has not enabled CRM integration.
+该接口只支持修改 Sales Order。,This interface only supports modifying Sales Order.
+该接口只支持创建 Sales Order。,This interface only supports creating Sales Order.
+请使用 custom_crm_order_no 定位销售订单，不要传 name。,"Please use custom_crm_order_no to locate Sales Order, do not pass name."
+请求体不能直接传 docstatus，请由接口自动提交销售订单。,The request body cannot be directly passed to docstatus. Please submit Sales Order automatically through the interface.
+请求体必须是 JSON 对象。,The request body must be a JSON object.
+请选择 1 至 100 张订单。,Please select an order of 1 to 100 sheets.
+财务生产放行,financial production release
+财务确认记录与订单不一致。,The financial confirmation record is inconsistent with the order.
+返回销售订单,Return Sales Order
+重新提交不得更改原订单日期。,Resubmissions may not change the original order date.
+重新提交必须包含 salesOrder 对象。,Resubmissions must contain the salesOrder object.
+重新提交必须提供 targetCrmRevision。,Resubmissions must provide targetCrmRevision.
+重新提交报文包含 ERP 内部控制字段。,The resubmit message contains the ERP internal control field.
+重新提交的 CRM 内容版本必须大于原版本。,The resubmitted content version of CRM must be greater than the original version.
+重新提交的 CRM 号、公司或客户与历史订单不一致。,"The resubmitted CRM number, company or customer is inconsistent with the historical order."
+重新提交的 CRM 审批轮次必须大于原轮次。,The resubmitted CRM approval round must be greater than the original round.
+重新提交的每条明细必须有唯一 custom_crm_order_item_id。,Each detail resubmitted must have a unique custom_crm_order_item_id.
+销售人员 {0} 不存在或未启用。,Salesperson {0} does not exist or is not enabled.
+销售人员 {0} 是分组，不能加入销售团队。,Salesperson {0} is a group and cannot join the sales team.
+销售出库 {0} 已取消，ERP流程状态：{1},"Delivery Note {0} Canceled, ERP process status: {1}"
+销售出库 {0} 已提交，ERP流程状态：{1},"Delivery Note {0} Submitted, ERP process status: {1}"
+销售出库已在 ERP 提交并完成库存扣减。,Delivery Note has submitted and completed the inventory deduction on ERP.
+销售出库第 {0} 行 custom_version 不能超过 64 个字符。,Delivery Note line {0} custom_version cannot exceed 64 characters.
+销售出库第 {0} 行 custom_version 与销售订单明细不匹配。,Delivery Note row {0} details do not match custom_version and Sales Order.
+销售出库第 {0} 行 custom_version 必须是字符串。,Delivery Note line {0} custom_version must be a string.
+销售出库第 {0} 行 item_code 与 sales_order_item 不匹配。,Delivery Note line {0} does not match item_code and sales_order_item.
+销售出库第 {0} 行 qty 必须大于 0。,Delivery Note line {0} qty must be greater than 0.
+销售出库第 {0} 行必须提供 crm_order_item_id 或 sales_order_item。,Delivery Note Line {0} must provide crm_order_item_id or sales_order_item.
+销售出库第 {0} 行数量超过销售订单剩余可出库数量。,The quantity of row Delivery Note {0} exceeds the remaining quantity that can be shipped out of Sales Order.
+销售出库第 {0} 行未找到可出库的销售订单明细。,Delivery row {0}: No sales order item available for delivery was found.
+销售出库第 {0} 行物料 {1} 对应多个版本，请传 custom_version 或 sales_order_item。,"Delivery Note {0} line material {1} corresponds to multiple versions, please send custom_version or sales_order_item."
+销售出库第 {0} 行缺少 item_code 或 sales_order_item。,Delivery Note line {0} is missing item_code or sales_order_item.
+销售订单 {0} 当前流程状态为 {1}，不允许执行 CRM 发货。,"Sales Order {0} The current process status is {1}, and CRM shipment is not allowed."
+销售订单 {0} 当前状态为 {1}，只有生产中及之前的状态允许修改。,Sales Order {0} The current status is {1}. Only the status during production and before is allowed to be modified.
+销售订单 {0} 当前状态为 {1}，物料或版本只能在推送 MES 前更正。,"Sales Order {0} The current status is {1}, and the material or version can only be corrected before pushing MES."
+销售订单 {0} 必须已提交。,Sales Order {0} must have been submitted.
+销售订单中未找到明细 {0}。,Detail {0} not found in Sales Order.
+销售订单尚未完成财务放行及 CRM/MES 同步，不能安排生产。,Sales Order has not yet completed synchronization with Financial Release and CRM/MES and cannot be scheduled for production.
+销售订单已关闭、取消或暂停。,"Sales Order has been closed, canceled or suspended."
+销售订单已创建并提交。,Sales Order has been created and submitted.
+销售订单已存在，本次请求按幂等方式返回原单据。,Sales Order already exists. This request returns the original document in an idempotent manner.
+销售订单已更新。,Sales Order has been updated.
+销售订单已经完成定金确认同步。,Sales Order has completed the deposit confirmation synchronization.
+销售订单已驳回并取消。,Sales Order has been rejected and cancelled.
+销售订单当前原生状态不允许补全明细。,Sales OrderThe current native state does not allow completion of details.
+销售订单必须提交后才能核销尾款。,Sales Order must be submitted before Reconciliation can pay the final payment.
+销售订单必须提交后才能确认定金。,Sales Order must be submitted before the deposit can be confirmed.
+销售订单明细 {0} 已产生下游数量，不能替换物料或版本：{1}。,Sales Order details {0} The downstream quantity has been generated and cannot replace the material or version: {1}.
+销售订单明细 {0} 缺少 warehouse，须先维护原生仓库。,"Sales Order details {0} lacks warehouse, and the original warehouse must be maintained first."
+销售订单缺失明细已补全。,The missing details of Sales Order have been completed.
+销售订单缺少可推送到 MES 的明细行。,Sales Order is missing a detail row that can be pushed to MES.
+预览后来源、订单或库存已变化，请重新预览。,"If the source, order or inventory has changed after previewing, please preview again."
+首次建单必须提供 salesOrder 和 targetCrmRevision。,salesOrder and targetCrmRevision must be provided when placing an order for the first time.
+首次建单的每条明细必须有唯一 custom_crm_order_item_id。,Each detail of the first order creation must have a unique custom_crm_order_item_id.
+驳回,Dismiss
+crm推送日志,CRM Push Logs
+销售出库,Delivery Note
