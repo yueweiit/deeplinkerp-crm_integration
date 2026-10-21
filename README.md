@@ -20,6 +20,9 @@ bench get-app --branch main crm_integration https://github.com/yueweiit/deeplink
 bench install-app crm_integration
 ```
 
+CRM 集成日志的 `http_status_code=0` 表示没有可用的 HTTP 状态码；创建和更新日志时将显式的
+`None` 转为 `0`，保留已有状态码及原始错误内容，避免内部异常再次触发日志非空约束错误。
+
 ### Contributing
 
 This app uses `pre-commit` for code formatting and linting. Please [install pre-commit](https://pre-commit.com/#installation) and enable it for this repository:

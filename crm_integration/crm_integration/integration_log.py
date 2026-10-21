@@ -40,7 +40,7 @@ def create_crm_log(
 				"error_message": error_message,
 				"trace_id": trace_id,
 				"external_status": external_status,
-				"http_status_code": http_status_code,
+				"http_status_code": http_status_code if http_status_code is not None else 0,
 			}
 		)
 		log.insert(ignore_permissions=True)
@@ -59,6 +59,8 @@ def update_crm_log(log, **values):
 		for fieldname, value in values.items():
 			if fieldname in ("request_payload", "response_payload"):
 				updates[fieldname] = as_json(value)
+			elif fieldname == "http_status_code" and value is None:
+				updates[fieldname] = 0
 			else:
 				updates[fieldname] = value
 
