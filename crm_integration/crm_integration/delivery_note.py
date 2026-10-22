@@ -110,8 +110,6 @@ def create_and_submit_delivery_note_from_crm(payload):
 					validate_crm_preview_fingerprints(payload, preview)
 					if plan["blockers"]:
 						frappe.throw("\n".join(plan["blockers"]))
-					savepoint = "crm_shipment_" + hashlib.sha256(payload[CRM_SHIPMENT_FIELD].encode()).hexdigest()[:16]
-					frappe.db.savepoint(savepoint)
 					try:
 						repost_started_at = now()
 						release_sales_order_for_crm_shipment(sales_order, legacy_release=not is_strict_crm_shipment(payload))
@@ -126,7 +124,14 @@ def create_and_submit_delivery_note_from_crm(payload):
 						delivery_note.submit()
 						record_crm_repost_dependencies(delivery_note, repost_started_at)
 					except Exception:
-						frappe.db.rollback(save_point=savepoint)
+						# Native controller boundaries and database deadlocks may
+						# already have rolled back the whole transaction. This RPC
+						# cannot continue after failure; a full rollback is safe in
+						# either case and clears pending writes and callbacks.
+						if not rollback_crm_shipment():
+							# A failed cleanup detached the unusable database. Do not
+							# reconnect just to update this transaction's audit row.
+							crm_log = None
 						raise
 					idempotent_replay = False
 
@@ -153,6 +158,36 @@ def create_and_submit_delivery_note_from_crm(payload):
 			http_status_code=getattr(frappe.local.response, "http_status_code", None),
 		)
 		raise
+
+
+def rollback_crm_shipment():
+	"""Abort the request without letting cleanup replace its original error."""
+	try:
+		frappe.db.rollback()
+	except Exception as rollback_error:
+		db = getattr(frappe.local, "db", None)
+		try:
+			if db is not None:
+				db.close()
+		except Exception as close_error:
+			log_crm_shipment_cleanup_failure("close_failed", close_error)
+		finally:
+			# Closing alone permits native SQL to reconnect. The HTTP exception
+			# handler also rolls back again, so detach this failed request's DB.
+			frappe.local.db = None
+		log_crm_shipment_cleanup_failure("rollback_failed", rollback_error)
+		return False
+	return True
+
+
+def log_crm_shipment_cleanup_failure(event, error):
+	try:
+		# No payload, credentials, SQL or native exception text in diagnostics.
+		frappe.logger("crm_integration", allow_site=True).error(
+			"CRM shipment transaction cleanup failed: %s (%s)", event, type(error).__name__
+		)
+	except Exception:
+		pass  # Diagnostics must not replace the business error or prevent close.
 
 
 def normalize_crm_shipment_payload(payload):

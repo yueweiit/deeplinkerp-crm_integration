@@ -638,7 +638,7 @@ class TestCRMNativeShipment(UnitTestCase):
 				pass
 		self.assertEqual([call.args[0] for call in lock.call_args_list], ["stock:A:W", "stock:Z:W"])
 
-	def test_native_submit_failure_rolls_back_supplement_mapping_and_delivery_savepoint(self):
+	def test_native_submit_failure_rolls_back_supplement_mapping_and_delivery_transaction(self):
 		payload = shipment.normalize_crm_shipment_payload(self.source())
 		plan, _ = self.plan()
 		preview = shipment.get_crm_preview_response(self.order(), payload, plan)
@@ -670,7 +670,8 @@ class TestCRMNativeShipment(UnitTestCase):
 				shipment.create_and_submit_delivery_note_from_crm(payload)
 		mapping.assert_called_once()
 		supplement.assert_called_once()
-		rollback.assert_called_once_with(save_point=savepoint.call_args.args[0])
+		savepoint.assert_not_called()
+		rollback.assert_called_once_with()
 		commit.assert_not_called()
 
 	def test_response_reports_native_repost_pending_and_supplement_ids(self):
