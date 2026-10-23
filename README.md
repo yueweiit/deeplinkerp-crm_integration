@@ -20,6 +20,20 @@ bench get-app --branch main crm_integration https://github.com/yueweiit/deeplink
 bench install-app crm_integration
 ```
 
+### 数据库字段同步
+
+更新代码后，目标站点需要完成数据库迁移；`after_install` 和 `after_migrate` 均调用
+`crm_integration.setup.sync_custom_fields`，同步 CRM 自定义字段。仅更新源码或清缓存不会创建缺失的数据库列。
+需要定向同步 CRM 字段时，在确认目标站点并备份后，从 bench 目录执行：
+
+```bash
+bench --site <目标站点> execute crm_integration.setup.sync_custom_fields
+```
+
+该方法会同步字段定义和物理列，并确保 CRM 临时补库单据类型存在；生产环境仍按现有授权发布流程执行。
+`Delivery Note.custom_crm_repost_ids` 是 ERP 内部保存原生库存重估任务 ID 的只读、非必填字段，
+由 ERP 在出库提交后写入，CRM 不需要传入。升级后应同时核对 Custom Field 元数据和数据库列。
+
 CRM 集成日志的 `http_status_code=0` 表示没有可用的 HTTP 状态码；创建和更新日志时将显式的
 `None` 转为 `0`，保留已有状态码及原始错误内容，避免内部异常再次触发日志非空约束错误。
 

@@ -691,13 +691,18 @@ class TestCRMNativeShipment(UnitTestCase):
 		so_fields = {field["fieldname"]: field for field in fields["Sales Order Item"]}
 		self.assertEqual(so_fields["custom_crm_order_item_id"]["allow_on_submit"], 1)
 		for doctype, names in {
-			"Delivery Note": ["custom_crm_source_organization", "custom_crm_event_id", "custom_crm_batch_no", "custom_crm_historical_replay", "custom_crm_source_fingerprint", "custom_crm_stock_supplement"],
+			"Delivery Note": ["custom_crm_source_organization", "custom_crm_event_id", "custom_crm_batch_no", "custom_crm_historical_replay", "custom_crm_source_fingerprint", "custom_crm_stock_supplement", "custom_crm_repost_ids"],
 			"Stock Entry": ["custom_crm_shipment_no", "custom_crm_delivery_note", "custom_crm_valuation_policy"],
 			"Delivery Note Item": ["custom_crm_order_item_id", "custom_crm_source_unit_price", "custom_crm_source_currency"],
 		}.items():
 			mapped = {field["fieldname"]: field for field in fields[doctype]}
 			for name in names:
 				self.assertEqual(mapped[name]["read_only"], 1)
+		repost_field = next(field for field in fields["Delivery Note"] if field["fieldname"] == "custom_crm_repost_ids")
+		self.assertEqual(repost_field["fieldtype"], "Small Text")
+		self.assertEqual(repost_field["allow_on_submit"], 1)
+		self.assertEqual(repost_field["no_copy"], 1)
+		self.assertFalse(repost_field.get("reqd"))
 
 	def test_execute_reads_native_historical_balance_with_current_row_lock(self):
 		payload = shipment.normalize_crm_shipment_payload(self.source())
