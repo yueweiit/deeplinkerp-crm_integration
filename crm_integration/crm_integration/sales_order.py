@@ -270,7 +270,7 @@ def push_sales_order_status_to_crm(
 		update_crm_log(
 			crm_log,
 			status="Failed",
-			response_payload=parse_crm_response(response) if response else None,
+			response_payload=parse_crm_response(response),
 			error_message=frappe.get_traceback(),
 			http_status_code=getattr(response, "status_code", None),
 		)
@@ -432,7 +432,7 @@ def push_sales_order_status_payload_to_crm(
 		update_crm_log(
 			crm_log,
 			status="Failed",
-			response_payload=parse_crm_response(response) if response else None,
+			response_payload=parse_crm_response(response),
 			error_message=frappe.get_traceback(),
 			http_status_code=getattr(response, "status_code", None),
 		)
@@ -489,7 +489,7 @@ def make_production_progress_trace_id(external_order_id, production_batch_no):
 
 
 def parse_crm_response(response):
-	if not response:
+	if response is None:
 		return None
 
 	content_type = response.headers.get("content-type") or ""
@@ -583,7 +583,7 @@ def push_sales_order_to_mes(sales_order):
 		validate_mes_sales_order_response(response_payload)
 	except RequestException as exc:
 		response = getattr(exc, "response", None)
-		response_payload = parse_crm_response(response) if response else response_payload
+		response_payload = parse_crm_response(response) if response is not None else response_payload
 		log_failed_mes_sales_order_push(
 			sales_order=sales_order,
 			mes_log=mes_log,
