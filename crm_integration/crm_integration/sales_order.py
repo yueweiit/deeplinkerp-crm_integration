@@ -786,7 +786,10 @@ def compact_dict(data):
 
 @frappe.whitelist(methods=["POST"])
 def reject_sales_order(sales_order_name, remark=None):
-	"""Reject and cancel a submitted Sales Order while it is waiting for deposit confirmation."""
+	"""Stage native cancellation before E1; the POST commits only after CRM accepts it."""
+	# Share the order lock with deposit confirmation so neither flow can send an
+	# external status based on an order that the other request has already changed.
+	frappe.db.get_value("Sales Order", sales_order_name, "name", for_update=True)
 	sales_order = frappe.get_doc("Sales Order", sales_order_name)
 	if not is_crm_integration_enabled(sales_order.get("company")):
 		throw_crm_integration_disabled(sales_order.get("company"))
@@ -798,12 +801,17 @@ def reject_sales_order(sales_order_name, remark=None):
 
 	if sales_order.get("custom_process_status") != PENDING_DEPOSIT_CONFIRMATION:
 		frappe.throw(_("只有待确认定金的销售订单可以驳回。"))
+	if not sales_order.get("custom_crm_order_no"):
+		frappe.throw(_("缺少 CRM 订单编号，无法推送状态到 CRM。"))
 
-	push_sales_order_status_to_crm(sales_order, CRM_STATUS_FINANCE_REJECTED, remark=remark)
+	# Native cancellation can fail on downstream links, stock reservations or
+	# hooks. Complete every local write before sending the irreversible E1 call.
+	# A CRM failure raises and Frappe rolls this POST transaction back.
 	sales_order.cancel()
 	sales_order.db_set("custom_process_status", REJECTED, update_modified=True)
 	sales_order.custom_process_status = REJECTED
 	sales_order.notify_update()
+	push_sales_order_status_to_crm(sales_order, CRM_STATUS_FINANCE_REJECTED, remark=remark)
 	frappe.logger().info(f"Sales Order {sales_order_name} rejected and cancelled from production flow")
 
 	return {

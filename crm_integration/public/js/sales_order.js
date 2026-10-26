@@ -248,6 +248,13 @@ function apply_primary_action_style(label) {
 	});
 }
 
+function native_cancel_buttons() {
+	const labels = new Set(["Cancel", __("Cancel"), "取消", __("取消")].map(encodeURIComponent));
+	return $(".page-actions button").not(".crm-reject-cancel-button").filter(function() {
+		return labels.has($(this).attr("data-label"));
+	});
+}
+
 function cleanup_reject_cancel_button(frm) {
 	$(".page-actions .crm-processing-cancel-hidden")
 		.removeClass("crm-processing-cancel-hidden")
@@ -264,13 +271,7 @@ function cleanup_reject_cancel_button(frm) {
 
 	if (frm && frm.doc && frm.doc.custom_process_status === "Deposit Confirmation Processing") {
 		const hide_cancel = function() {
-			const cancel_labels = [...new Set(["Cancel", __("Cancel"), "取消", __("取消")])];
-			const selector = cancel_labels
-				.map((label) => `.page-actions button[data-label="${encodeURIComponent(label)}"]`)
-				.join(", ");
-			$(selector)
-				.not(".crm-reject-cancel-button")
-				.addClass("crm-processing-cancel-hidden hidden");
+			native_cancel_buttons().addClass("crm-processing-cancel-hidden hidden");
 		};
 
 		hide_cancel();
@@ -294,11 +295,7 @@ function replace_cancel_button_with_reject(frm) {
 			return;
 		}
 
-		const cancel_labels = [...new Set(["Cancel", __("Cancel"), "取消", __("取消")])];
-		const selector = cancel_labels
-			.map((label) => `.page-actions button[data-label="${encodeURIComponent(label)}"]`)
-			.join(", ");
-		const $cancel_button = $(selector).not(".crm-reject-cancel-button").first();
+		const $cancel_button = native_cancel_buttons().first();
 
 		if (!$cancel_button.length) {
 			return;
@@ -313,8 +310,8 @@ function replace_cancel_button_with_reject(frm) {
 		$reject_button
 			.removeClass("crm-native-cancel-hidden hidden hide btn-default btn-secondary")
 			.addClass("crm-reject-cancel-button btn-primary primary-action")
-			.attr("data-label", encodeURIComponent(__("驳回")))
-			.text(__("驳回"))
+			.attr("data-label", encodeURIComponent(__("财务驳回")))
+			.text(__("财务驳回"))
 			.off("click.crmReject")
 			.on("click.crmReject", function(e) {
 				e.preventDefault();

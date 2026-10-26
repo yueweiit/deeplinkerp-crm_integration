@@ -5,6 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
 	"use strict";
 	const API = "crm_integration.crm_integration.finance_release.";
+	const REJECT_API = "crm_integration.crm_integration.sales_order.reject_sales_order";
 	const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 	const t = (value, args = []) => String((root.__ || (text => text))(value)).replace(/\{(\d+)\}/g, (_, i) => args[i] ?? "");
 	const buttonLabel = count => count === 1 ? t("允许生产（1单）") : t("允许生产（{0}单）", [count]);
@@ -14,13 +15,14 @@
 	function eligibleNames(rows) { return rows.filter(row => row.can_release).map(row => row.name); }
 	function retryNames(rows) { return rows.filter(row => row.state === "failed").map(row => row.name); }
 	function stateLabel(row) {
+		if (row.process_status === "Rejected") return t("Rejected");
 		if (["Pending Production", "Pending Final Payment", "Deliverable", "Partially Delivered", "Completed"].includes(row.process_status)) return t("已完成生产放行同步");
 		if (row.process_status === "Deposit Confirmation Processing" || row.state === "processing") return t("CRM/MES 同步处理中");
 		if (row.state === "failed" || row.last_confirmation?.status === "Failed") return t("同步失败，可重新核验后重试");
 		return row.can_release ? t("待人工确认允许生产") : row.reason || t("不可处理");
 	}
 	function rowsHTML(rows) {
-		return rows.map(row => `<tr><td>${link("sales-order", row.name)}${row.custom_crm_order_no ? `<small>${esc(row.custom_crm_order_no)}</small>` : ""}<small>${esc(row.customer_name || "")}</small></td><td>${row.grand_total === undefined ? "—" : money(row.grand_total, row.currency)}</td><td>${(row.receipts || []).map(payment => `${link("payment-entry", payment.name)} · ${esc(payment.posting_date)}<br>${esc(t(payment.docstatus === 1 ? "已提交" : payment.docstatus === 2 ? "已取消" : "草稿"))} · ${esc(t(payment.payment_type))} · ${money(payment.allocated_amount, payment.currency)}`).join("<hr>") || esc(t("未找到可见的关联收款记录"))}${row.receipts_complete === false ? `<p class="text-muted">${esc(t("收款记录可能不完整"))}</p>` : ""}</td><td>${esc(stateLabel(row))}${row.last_confirmation ? `<small>${esc(row.last_confirmation.user)} · ${esc(row.last_confirmation.creation)}</small>` : ""}</td></tr>`).join("");
+		return rows.map(row => `<tr><td>${link("sales-order", row.name)}${row.custom_crm_order_no ? `<small>${esc(row.custom_crm_order_no)}</small>` : ""}<small>${esc(row.customer_name || "")}</small></td><td>${row.grand_total === undefined ? "—" : money(row.grand_total, row.currency)}</td><td>${(row.receipts || []).map(payment => `${link("payment-entry", payment.name)} · ${esc(payment.posting_date)}<br>${esc(t(payment.docstatus === 1 ? "已提交" : payment.docstatus === 2 ? "已取消" : "草稿"))} · ${esc(t(payment.payment_type))} · ${money(payment.allocated_amount, payment.currency)}`).join("<hr>") || esc(t("未找到可见的关联收款记录"))}${row.receipts_complete === false ? `<p class="text-muted">${esc(t("收款记录可能不完整"))}</p>` : ""}</td><td>${esc(stateLabel(row))}${row.last_confirmation ? `<small>${esc(row.last_confirmation.user)} · ${esc(row.last_confirmation.creation)}</small>` : ""}${row.can_reject ? `<button type="button" class="btn btn-default btn-xs crm-release-reject" data-name="${esc(row.name)}">${esc(t("财务驳回"))}</button>` : ""}</td></tr>`).join("");
 	}
 	async function open(names, onUpdate) {
 		if (active) return;
@@ -46,6 +48,7 @@
 			panel.find(".crm-release-count").text(t("{0}: {1} · {2}: {3}", [t("可确认"), eligible.length, t("暂不可处理"), review.length - eligible.length]));
 			panel.find(".crm-release-confirm").text(buttonLabel(eligible.length)).prop("disabled", busy || !eligible.length || results.length > 0);
 			panel.find(".crm-release-retry").prop("hidden", !retryNames(results).length);
+			panel.find(".crm-release-reject").prop("disabled", busy || results.length > 0);
 		}
 		async function load(selected) {
 			const current = ++generation;
@@ -69,6 +72,31 @@
 			try { const response = await call("confirm_production_release_batch", { sales_orders: selected }); results = response.orders; if (active !== instance) { onUpdate?.(); return; } for (const row of review) { const result = results.find(item => item.name === row.name); if (result) { row.state = result.state; row.process_status = result.process_status || row.process_status; row.can_release = false; } } onUpdate?.(); }
 			catch (error) { panel.find(".crm-release-error").text(t("响应未确认，请关闭后重新核验；处理中订单不会重复提交。")); results = [{ state: "unknown" }]; }
 			finally { busy = false; panel.find("button").prop("disabled", false); paint(); if (active === instance && results.some(row => row.state === "processing")) timer = setTimeout(() => poll(), 3000); }
+		});
+		panel.find(".crm-release-table").on("click", ".crm-release-reject", event => {
+			const name = root.$(event.currentTarget).attr("data-name");
+			if (busy || results.length || !review.some(row => row.name === name && row.can_reject)) return;
+			root.frappe.confirm(`${esc(t("确认驳回此销售订单？"))} ${esc(name)}`, async () => {
+				if (busy || results.length || !review.some(row => row.name === name && row.can_reject)) return;
+				busy = true;
+				panel.find("button").prop("disabled", true);
+				panel.find(".crm-release-error").text("");
+				let succeeded = false;
+				try {
+					const response = await root.frappe.call({ method: REJECT_API, args: { sales_order_name: name }, freeze: true, freeze_message: t("正在驳回销售订单...") });
+					succeeded = response.message?.status === "success";
+					if (!succeeded) throw new Error("Reject was not confirmed");
+					const row = review.find(item => item.name === name);
+					if (row) { row.process_status = "Rejected"; row.can_release = false; row.can_reject = false; }
+				} catch (_) {
+					panel.find(".crm-release-error").text(t("驳回未完成，请核对 ERP 订单和 CRM 状态后重试。"));
+				} finally {
+					await load(scope);
+					busy = false;
+					paint();
+					if (succeeded) onUpdate?.();
+				}
+			});
 		});
 		panel.find(".crm-release-retry").on("click", async () => { const failed = retryNames(results); if (!failed.length || busy) return; if (timer) clearTimeout(timer); scope = failed; results = []; await load(scope); });
 		panel.find(".crm-release-close").first().trigger("focus"); await load(unique);

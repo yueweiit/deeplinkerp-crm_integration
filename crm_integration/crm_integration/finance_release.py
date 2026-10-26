@@ -66,13 +66,33 @@ def recorded_receipts(doc):
 	return result
 
 
+def reject_reason(doc, crm_enabled):
+	"""Mirror the rejection endpoint's prerequisites for a read-only review."""
+	if not crm_enabled:
+		return _("该公司未启用 CRM 集成。")
+	if not frappe.has_permission("Sales Order", "cancel", doc=doc):
+		return _("没有取消此销售订单的权限，无法驳回。")
+	if doc.get("status") == "Closed":
+		return _("已关闭的销售订单不能执行生产流程操作，请先重新打开订单。")
+	if doc.docstatus != 1:
+		return _("只有已提交的销售订单可以驳回并取消。")
+	if doc.get("custom_process_status") != PENDING:
+		return _("只有待确认定金的销售订单可以驳回。")
+	if not doc.get("custom_crm_order_no"):
+		return _("缺少 CRM 订单编号，无法推送状态到 CRM。")
+	return ""
+
+
 def review_order(doc):
-	data = {"name": doc.name, "process_status": doc.get("custom_process_status"), "can_release": False, "reason": ""}
+	data = {"name": doc.name, "process_status": doc.get("custom_process_status"), "can_release": False, "can_reject": False, "reason": "", "reject_reason": ""}
 	fields = readable_fields("Sales Order")
 	for field in ("company", "custom_crm_order_no", "customer_name", "currency", "grand_total", "advance_paid", "party_account_currency"):
 		if field in fields:
 			data[field] = doc.get(field)
 	data.update(recorded_receipts(doc))
+	crm_enabled = is_crm_integration_enabled(doc.company)
+	data["reject_reason"] = reject_reason(doc, crm_enabled)
+	data["can_reject"] = not data["reject_reason"]
 	data["last_confirmation"] = None
 	if (frappe.db.exists("DocType", "CRM Integration Log") and frappe.has_permission("CRM Integration Log", "read")
 		and {"user", "creation", "status"} <= readable_fields("CRM Integration Log")):
@@ -81,7 +101,7 @@ def review_order(doc):
 		data["last_confirmation"] = logs[0] if logs else None
 	if not has_release_permission():
 		data["reason"] = _("未获得生产放行权限；管理员可在角色权限管理中配置。")
-	elif not is_crm_integration_enabled(doc.company):
+	elif not crm_enabled:
 		data["reason"] = _("该公司未启用 CRM 集成。")
 	elif doc.docstatus != 1 or doc.get("status") in {"Closed", "Cancelled", "Stopped", "On Hold"}:
 		data["reason"] = _("仅可放行已提交且未关闭、未取消、未暂停的订单。")
@@ -110,7 +130,8 @@ def get_finance_release_review(sales_orders):
 		try:
 			rows.append(review_order(read_order(name)))
 		except (frappe.PermissionError, frappe.DoesNotExistError):
-			rows.append({"name": name, "can_release": False, "reason": _("订单不存在或不在当前可见范围内。")})
+			reason = _("订单不存在或不在当前可见范围内。")
+			rows.append({"name": name, "can_release": False, "can_reject": False, "reason": reason, "reject_reason": reason})
 	return {"orders": rows, "manual_confirmation": True}
 
 

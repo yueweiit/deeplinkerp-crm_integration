@@ -4,4 +4,5 @@
 .crm-release-drawer header h3{flex:1;margin:0;font-size:18px}.crm-release-drawer footer{border-top:1px solid var(--border-color,#e2e2e2);border-bottom:0;justify-content:flex-end;flex-wrap:wrap}
 .crm-release-body{padding:18px 20px;overflow:auto;flex:1}.crm-release-table{overflow:auto}.crm-release-table table{min-width:680px;font-size:13px}
 .crm-release-table th{font-weight:500;background:var(--subtle-fg,#f3f3f3)}.crm-release-table td{vertical-align:top}.crm-release-table small{display:block;color:var(--text-muted,#777);margin-top:3px}.crm-release-table hr{margin:7px 0}
+.crm-release-table .crm-release-reject{margin-top:8px}
 .crm-release-drawer [hidden]{display:none!important}

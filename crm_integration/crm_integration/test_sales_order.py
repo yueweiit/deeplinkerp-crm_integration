@@ -207,6 +207,7 @@ class TestSalesOrderPermissions(UnitTestCase):
 		doc.check_permission.side_effect = frappe.PermissionError
 
 		with (
+			patch.object(frappe.db, "get_value"),
 			patch.object(frappe, "get_doc", return_value=doc),
 			patch(
 				"crm_integration.crm_integration.sales_order.is_crm_integration_enabled",
@@ -221,6 +222,67 @@ class TestSalesOrderPermissions(UnitTestCase):
 
 		doc.check_permission.assert_called_once_with("cancel")
 		push_status.assert_not_called()
+
+	def test_reject_stages_native_cancel_before_crm_push(self):
+		doc = self.make_sales_order()
+		events = []
+		doc.cancel.side_effect = lambda: events.append("cancel")
+		doc.db_set.side_effect = lambda *args, **kwargs: events.append("rejected")
+		doc.notify_update.side_effect = lambda: events.append("notify")
+		with (
+			patch.object(frappe.db, "get_value", side_effect=lambda *args, **kwargs: events.append("lock")) as lock,
+			patch.object(frappe, "get_doc", return_value=doc),
+			patch("crm_integration.crm_integration.sales_order.now", return_value="2026-10-26 00:00:00"),
+			patch("crm_integration.crm_integration.sales_order.is_crm_integration_enabled", return_value=True),
+			patch("crm_integration.crm_integration.sales_order.push_sales_order_status_to_crm", side_effect=lambda *args, **kwargs: events.append("E1")),
+		):
+			result = reject_sales_order("SO-001")
+		lock.assert_called_once_with("Sales Order", "SO-001", "name", for_update=True)
+		self.assertEqual(events, ["lock", "cancel", "rejected", "notify", "E1"])
+		self.assertEqual(result["status"], "success")
+
+	def test_reject_does_not_send_e1_if_native_cancel_fails(self):
+		doc = self.make_sales_order()
+		doc.cancel.side_effect = frappe.ValidationError("linked invoice")
+		with (
+			patch.object(frappe.db, "get_value"),
+			patch.object(frappe, "get_doc", return_value=doc),
+			patch("crm_integration.crm_integration.sales_order.is_crm_integration_enabled", return_value=True),
+			patch("crm_integration.crm_integration.sales_order.push_sales_order_status_to_crm") as push_status,
+			self.assertRaises(frappe.ValidationError),
+		):
+			reject_sales_order("SO-001")
+		push_status.assert_not_called()
+		doc.db_set.assert_not_called()
+
+	def test_reject_requires_crm_order_number_before_cancel(self):
+		doc = self.make_sales_order()
+		doc.get.side_effect = lambda field: None if field == "custom_crm_order_no" else {
+			"company": "Test Company", "custom_process_status": "Pending Deposit Confirmation", "status": "To Deliver and Bill",
+		}.get(field)
+		with (
+			patch.object(frappe.db, "get_value"),
+			patch.object(frappe, "get_doc", return_value=doc),
+			patch("crm_integration.crm_integration.sales_order.is_crm_integration_enabled", return_value=True),
+			patch("crm_integration.crm_integration.sales_order.push_sales_order_status_to_crm") as push_status,
+			self.assertRaises(frappe.ValidationError),
+		):
+			reject_sales_order("SO-001")
+		doc.cancel.assert_not_called()
+		push_status.assert_not_called()
+
+	def test_reject_propagates_crm_failure_for_request_transaction_rollback(self):
+		doc = self.make_sales_order()
+		with (
+			patch.object(frappe.db, "get_value"),
+			patch.object(frappe, "get_doc", return_value=doc),
+			patch("crm_integration.crm_integration.sales_order.is_crm_integration_enabled", return_value=True),
+			patch("crm_integration.crm_integration.sales_order.push_sales_order_status_to_crm", side_effect=RequestsConnectionError("unavailable")),
+			self.assertRaises(RequestsConnectionError),
+		):
+			reject_sales_order("SO-001")
+		doc.cancel.assert_called_once()
+		doc.db_set.assert_called_once_with("custom_process_status", "Rejected", update_modified=True)
 
 	def test_confirm_deposit_checks_read_scope_before_push(self):
 		doc = self.make_sales_order()
@@ -466,6 +528,7 @@ class TestSalesOrderPermissions(UnitTestCase):
 		doc.docstatus = 1
 		doc.get.side_effect = lambda field: {
 			"company": "Test Company",
+			"custom_crm_order_no": "CRM-001",
 			"custom_process_status": process_status,
 			"status": "To Deliver and Bill",
 		}.get(field)

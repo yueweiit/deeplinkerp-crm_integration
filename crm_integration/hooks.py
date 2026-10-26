@@ -25,8 +25,8 @@ app_license = "mit"
 # ------------------
 
 # include js, css files in header of desk.html
-app_include_css = ["/assets/crm_integration/css/finance_release.css?v=0.0.1"]
-app_include_js = ["/assets/crm_integration/js/finance_release.js?v=0.0.1"]
+app_include_css = ["/assets/crm_integration/css/finance_release.css?v=0.0.2"]
+app_include_js = ["/assets/crm_integration/js/finance_release.js?v=0.0.2"]
 
 # include js in doctype views
 doctype_js = {

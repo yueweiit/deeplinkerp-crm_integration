@@ -68,6 +68,8 @@ Update Items,Actualizar
 销售订单必须提交后才能确认定金。,El pedido de venta debe estar enviado antes de confirmar el anticipo.
 销售订单缺少可推送到 MES 的明细行。,El pedido de venta no tiene líneas disponibles para enviar a MES.
 驳回,Rechazar
+财务驳回,Rechazar
+驳回未完成，请核对 ERP 订单和 CRM 状态后重试。,El rechazo no se completó. Verifique el pedido en ERP y el estado en CRM antes de reintentarlo.
 以下销售订单状态不允许创建或保存销售出库草稿：<br>{0},Los siguientes pedidos de venta no permiten crear o guardar borradores de nota de entrega:<br>{0}
 以下销售订单未放行发货，不能提交销售出库：<br>{0},Los siguientes pedidos de venta no están liberados para entrega y no pueden enviarse:<br>{0}
 业务员,Vendedor
@@ -474,3 +476,4 @@ warehouse {0} 与销售订单行仓库 {1} 冲突。,El almacén {0} entra en co
 首次建单的每条明细必须有唯一 custom_crm_order_item_id。,Cada detalle de la creación del primer pedido debe tener un custom_crm_order_item_id único.
 crm推送日志,Registros de envío de CRM
 销售出库,Nota de entrega
+没有取消此销售订单的权限，无法驳回。,No tiene permiso para cancelar este pedido de venta; no puede rechazarlo.

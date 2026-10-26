@@ -349,5 +349,8 @@ warehouse {0} 与销售订单行仓库 {1} 冲突。,warehouse {0} conflicts wit
 首次建单必须提供 salesOrder 和 targetCrmRevision。,salesOrder and targetCrmRevision must be provided when placing an order for the first time.
 首次建单的每条明细必须有唯一 custom_crm_order_item_id。,Each detail of the first order creation must have a unique custom_crm_order_item_id.
 驳回,Dismiss
+财务驳回,Reject
+驳回未完成，请核对 ERP 订单和 CRM 状态后重试。,Rejection did not complete. Check the ERP order and CRM status before retrying.
 crm推送日志,CRM Push Logs
 销售出库,Delivery Note
+没有取消此销售订单的权限，无法驳回。,You do not have permission to cancel this Sales Order, so it cannot be rejected.

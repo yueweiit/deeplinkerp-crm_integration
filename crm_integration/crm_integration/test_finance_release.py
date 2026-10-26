@@ -10,7 +10,7 @@ from crm_integration.crm_integration import sales_order as flow
 class TestFinanceRelease(UnitTestCase):
 	def setUp(self):
 		super().setUp()
-		self.doc = frappe._dict(doctype="Sales Order", name="SO-1", company="MX", customer="C-1", docstatus=1,
+		self.doc = frappe._dict(doctype="Sales Order", name="SO-1", company="MX", customer="C-1", custom_crm_order_no="CRM-1", docstatus=1,
 			status="To Deliver and Bill", custom_process_status=release.PENDING)
 		self.enterContext(patch.object(release, "readable_fields", return_value={"company", "customer", "custom_process_status", "references", "party_type", "party", "payment_type", "posting_date", "paid_from_account_currency", "paid_to_account_currency", "reference_doctype", "reference_name", "allocated_amount"}))
 		self.enterContext(patch.object(release, "has_release_permission", return_value=True))
@@ -23,6 +23,29 @@ class TestFinanceRelease(UnitTestCase):
 		self.assertTrue(review["can_release"])
 		self.assertEqual(review["receipts"], [])
 		self.assertNotIn("required_deposit", review)
+
+	def test_reject_action_requires_cancel_permission_and_pending_submitted_order(self):
+		with patch.object(frappe, "has_permission", return_value=True):
+			self.assertTrue(release.review_order(self.doc)["can_reject"])
+			for values in ({"docstatus": 0}, {"status": "Closed"}, {"custom_process_status": release.PROCESSING}):
+				with self.subTest(values=values):
+					self.assertFalse(release.review_order(frappe._dict({**self.doc, **values}))["can_reject"])
+		with patch.object(frappe, "has_permission", return_value=False):
+			review = release.review_order(self.doc)
+			self.assertFalse(review["can_reject"])
+			self.assertEqual(review["reject_reason"], frappe._("没有取消此销售订单的权限，无法驳回。"))
+		with patch.object(release, "is_crm_integration_enabled", return_value=False), patch.object(frappe, "has_permission", return_value=True):
+			self.assertFalse(release.review_order(self.doc)["can_reject"])
+		with patch.object(frappe, "has_permission", return_value=True):
+			review = release.review_order(frappe._dict({**self.doc, "custom_crm_order_no": None}))
+			self.assertFalse(review["can_reject"])
+			self.assertEqual(review["reject_reason"], frappe._("缺少 CRM 订单编号，无法推送状态到 CRM。"))
+
+	def test_reject_permission_is_independent_of_production_release_permission(self):
+		with patch.object(release, "has_release_permission", return_value=False), patch.object(frappe, "has_permission", return_value=True):
+			review = release.review_order(self.doc)
+		self.assertFalse(review["can_release"])
+		self.assertTrue(review["can_reject"])
 
 	def test_sales_order_edit_permission_does_not_grant_release(self):
 		with patch.object(release, "has_release_permission", return_value=False):
@@ -85,7 +108,7 @@ class TestFinanceRelease(UnitTestCase):
 	def test_unscoped_order_review_returns_no_details(self):
 		with patch.object(release, "read_order", side_effect=frappe.PermissionError):
 			row = release.get_finance_release_review(["SO-HIDDEN"])["orders"][0]
-		self.assertEqual(set(row), {"name", "can_release", "reason"})
+		self.assertEqual(set(row), {"name", "can_release", "can_reject", "reason", "reject_reason"})
 
 	def test_confirmation_aborts_when_audit_cannot_be_saved(self):
 		doc = MagicMock(); doc.name = "SO-1"; doc.company = "MX"; doc.docstatus = 1
