@@ -37,6 +37,15 @@ bench --site <目标站点> execute crm_integration.setup.sync_custom_fields
 CRM 集成日志的 `http_status_code=0` 表示没有可用的 HTTP 状态码；创建和更新日志时将显式的
 `None` 转为 `0`，保留已有状态码及原始错误内容，避免内部异常再次触发日志非空约束错误。
 
+### ERP 发货状态推送开关
+
+`crm_shipment_status_push_enabled` 默认是 `1`，保持既有行为。需要暂停的站点通过
+`bench --site <目标站点> set-config crm_shipment_status_push_enabled 0` 单独关闭 Delivery Note
+提交／取消的 `SHIPMENT_CREATED`、`SHIPMENT_CANCELLED` 事件。新代码的 worker 也会跳过已排队但
+尚未执行的这两类任务。销售订单状态更新、MES 回调及其他 CRM 状态事件不受此开关影响。
+暂停期间不生成这两类出站日志，任务不会自动补发；恢复前应按 ERP Delivery Note 与 CRM 对账，
+然后在目标站点将开关设为 `1` 并按发布流程重启相关进程。
+
 ### Contributing
 
 This app uses `pre-commit` for code formatting and linting. Please [install pre-commit](https://pre-commit.com/#installation) and enable it for this repository:

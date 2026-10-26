@@ -5,6 +5,8 @@ import frappe
 from frappe.tests import UnitTestCase
 from requests.exceptions import ConnectionError as RequestsConnectionError
 
+from crm_integration.crm_integration import sales_order as crm_sales_order
+from crm_integration.crm_integration import settings as crm_settings
 from crm_integration.crm_integration.sales_order import (
 	CRM_STATUS_CONFIRMED_DEPOSIT_PUSH_PRODUCTION,
 	CRM_STATUS_IN_PRODUCTION,
@@ -26,6 +28,60 @@ from crm_integration.crm_integration.sales_order import (
 	restore_deposit_confirmation_after_failure,
 	run_confirm_deposit_sync,
 )
+
+
+class TestCRMShipmentStatusPushSwitch(UnitTestCase):
+	def test_site_config_defaults_to_enabled_and_allows_opt_out(self):
+		for config, expected in (
+			({}, True),
+			({"crm_shipment_status_push_enabled": 0}, False),
+			({"crm_shipment_status_push_enabled": 1}, True),
+		):
+			with self.subTest(config=config), patch.object(frappe.local, "conf", frappe._dict(config)):
+				self.assertEqual(crm_settings.is_crm_shipment_status_push_enabled(), expected)
+
+	def test_paused_shipment_events_are_not_enqueued(self):
+		with (
+			patch.object(crm_sales_order, "is_crm_shipment_status_push_enabled", return_value=False),
+			patch.object(frappe, "enqueue") as enqueue,
+		):
+			for status in (
+				crm_sales_order.CRM_STATUS_SHIPMENT_CREATED,
+				crm_sales_order.CRM_STATUS_SHIPMENT_CANCELLED,
+			):
+				crm_sales_order.enqueue_sales_order_status_to_crm("SO-001", status)
+			enqueue.assert_not_called()
+			crm_sales_order.enqueue_sales_order_status_to_crm(
+				"SO-001", crm_sales_order.CRM_STATUS_PENDING_SHIPMENT
+			)
+			enqueue.assert_called_once()
+
+	def test_enabled_shipment_event_is_enqueued(self):
+		with (
+			patch.object(crm_sales_order, "is_crm_shipment_status_push_enabled", return_value=True),
+			patch.object(frappe, "enqueue") as enqueue,
+		):
+			crm_sales_order.enqueue_sales_order_status_to_crm(
+				"SO-001", crm_sales_order.CRM_STATUS_SHIPMENT_CREATED
+			)
+			enqueue.assert_called_once()
+
+	def test_queued_shipment_event_is_discarded_when_paused(self):
+		with (
+			patch.object(frappe, "get_doc") as get_doc,
+			patch.object(crm_sales_order, "is_crm_shipment_status_push_enabled", return_value=False),
+			patch.object(crm_sales_order, "create_crm_log") as create_log,
+			patch.object(crm_sales_order.requests, "post") as post,
+		):
+			for status in (
+				crm_sales_order.CRM_STATUS_SHIPMENT_CREATED,
+				crm_sales_order.CRM_STATUS_SHIPMENT_CANCELLED,
+			):
+				result = crm_sales_order.push_sales_order_status_to_crm_job("SO-001", status)
+				self.assertIsNone(result)
+		get_doc.assert_not_called()
+		create_log.assert_not_called()
+		post.assert_not_called()
 
 
 class TestMESSalesOrderPayload(UnitTestCase):

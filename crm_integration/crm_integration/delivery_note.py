@@ -21,7 +21,10 @@ from crm_integration.crm_integration.sales_order import (
 	set_process_status,
 )
 from crm_integration.crm_integration.sales_order_identity import get_sales_order_names_by_crm_order_no
-from crm_integration.crm_integration.settings import is_crm_integration_enabled
+from crm_integration.crm_integration.settings import (
+	is_crm_integration_enabled,
+	is_crm_shipment_status_push_enabled,
+)
 from crm_integration.patches.add_crm_custom_fields import CRM_TEMPORARY_RECEIPT_TYPE
 
 COMPLETED = "Completed"
@@ -1310,6 +1313,8 @@ def update_sales_orders_delivery_process_status(doc):
 
 
 def enqueue_crm_delivery_note_shipment_event(doc, sales_order_name, process_status):
+	if not is_crm_shipment_status_push_enabled():
+		return
 	items = get_delivery_note_shipment_items(doc, sales_order_name)
 	if not items:
 		return
@@ -1334,6 +1339,8 @@ def enqueue_crm_delivery_note_shipment_event(doc, sales_order_name, process_stat
 
 
 def enqueue_crm_delivery_note_cancellation_event(doc, sales_order_name, process_status):
+	if not is_crm_shipment_status_push_enabled():
+		return
 	items = get_delivery_note_shipment_items(doc, sales_order_name)
 	if not items:
 		return

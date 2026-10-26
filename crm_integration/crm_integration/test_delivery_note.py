@@ -260,9 +260,10 @@ class TestDeliveryNoteCRMEvents(UnitTestCase):
 			],
 		)
 
-		with patch(
-			"crm_integration.crm_integration.delivery_note.enqueue_sales_order_status_to_crm"
-		) as enqueue_status:
+		with (
+			patch.object(shipment, "is_crm_shipment_status_push_enabled", return_value=True),
+			patch.object(shipment, "enqueue_sales_order_status_to_crm") as enqueue_status,
+		):
 			enqueue_crm_delivery_note_cancellation_event(doc, "SO-001", "Deliverable")
 
 		enqueue_status.assert_called_once_with(
@@ -272,8 +273,20 @@ class TestDeliveryNoteCRMEvents(UnitTestCase):
 			trigger_event="delivery_note_cancelled",
 			delivery_note_name="DN-001",
 			items=[{"externalItemId": "ITEM-001", "quantity": 2.0}],
-			remark="销售出库 DN-001 已取消，ERP流程状态：Deliverable",
+			remark=frappe._("销售出库 {0} 已取消，ERP流程状态：{1}").format("DN-001", "Deliverable"),
 		)
+
+	def test_paused_delivery_events_skip_payload_building(self):
+		doc = frappe._dict(name="DN-001")
+		with (
+			patch.object(shipment, "is_crm_shipment_status_push_enabled", return_value=False),
+			patch.object(shipment, "get_delivery_note_shipment_items") as get_items,
+			patch.object(shipment, "enqueue_sales_order_status_to_crm") as enqueue_status,
+		):
+			shipment.enqueue_crm_delivery_note_shipment_event(doc, "SO-001", "Deliverable")
+			shipment.enqueue_crm_delivery_note_cancellation_event(doc, "SO-001", "Deliverable")
+		get_items.assert_not_called()
+		enqueue_status.assert_not_called()
 
 	def test_cancel_path_enqueues_cancellation_instead_of_shipment(self):
 		doc = frappe._dict(name="DN-001", company="Test Company", docstatus=2)

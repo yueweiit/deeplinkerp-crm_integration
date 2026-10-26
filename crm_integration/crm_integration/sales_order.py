@@ -9,7 +9,11 @@ from frappe.utils.data import get_datetime
 
 from crm_integration.crm_integration.integration_log import create_crm_log, update_crm_log
 from crm_integration.crm_integration.sales_order_identity import crm_sales_order_creation_lock, get_sales_order_names_by_crm_order_no
-from crm_integration.crm_integration.settings import is_crm_integration_enabled, throw_crm_integration_disabled
+from crm_integration.crm_integration.settings import (
+	is_crm_integration_enabled,
+	is_crm_shipment_status_push_enabled,
+	throw_crm_integration_disabled,
+)
 
 
 PENDING_CONFIRMATION = "Pending Confirmation"
@@ -212,9 +216,18 @@ def get_crm_status_event(external_status):
 	return CRM_STATUS_EVENTS.get(external_status) or "Sales Order Status Push"
 
 
+def is_paused_crm_shipment_status(external_status):
+	return (
+		external_status in (CRM_STATUS_SHIPMENT_CREATED, CRM_STATUS_SHIPMENT_CANCELLED)
+		and not is_crm_shipment_status_push_enabled()
+	)
+
+
 def push_sales_order_status_to_crm(
 	sales_order, external_status, remark=None, production_batch_no=None
 ):
+	if is_paused_crm_shipment_status(external_status):
+		return None
 	if not is_crm_integration_enabled(sales_order.get("company")):
 		throw_crm_integration_disabled(sales_order.get("company"))
 
@@ -302,6 +315,8 @@ def enqueue_sales_order_status_to_crm(
 	remark=None,
 	production_batch_no=None,
 ):
+	if is_paused_crm_shipment_status(external_status):
+		return None
 	job_args = {
 		"sales_order_name": sales_order_name,
 		"external_status": external_status,
@@ -332,6 +347,8 @@ def push_sales_order_status_to_crm_job(
 	remark=None,
 	production_batch_no=None,
 ):
+	if is_paused_crm_shipment_status(external_status):
+		return None
 	sales_order = frappe.get_doc("Sales Order", sales_order_name)
 	if not is_crm_integration_enabled(sales_order.get("company")):
 		return None
@@ -358,6 +375,8 @@ def push_sales_order_status_payload_to_crm(
 	remark=None,
 	production_batch_no=None,
 ):
+	if is_paused_crm_shipment_status(external_status):
+		return None
 	external_order_id = sales_order.get("custom_crm_order_no")
 	if external_status == CRM_STATUS_PRODUCTION_PROGRESS_REPORTED:
 		trace_id = make_production_progress_trace_id(
