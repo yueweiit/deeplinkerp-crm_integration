@@ -15,6 +15,7 @@ from crm_integration.crm_integration.sales_order import (
 	PENDING_CONFIRMATION,
 	PENDING_DEPOSIT_CONFIRMATION,
 	PENDING_PRODUCTION,
+	REJECTED,
 )
 from crm_integration.crm_integration.sales_order_identity import crm_sales_order_creation_lock
 from crm_integration.crm_integration.settings import is_crm_integration_enabled, throw_crm_integration_disabled
@@ -80,7 +81,7 @@ def order_names(crm_order_no):
 	return frappe.get_all(
 		"Sales Order", filters={"custom_crm_order_no": crm_order_no},
 		fields=["name", "docstatus", "modified", "custom_process_status", "custom_crm_order_id"],
-		order_by="creation asc", limit_page_length=0,
+		order_by="creation asc, name asc", limit_page_length=0,
 	)
 
 
@@ -239,7 +240,9 @@ def describe_order(doc, rows):
 			 "allocated_amount": row.allocated_amount}
 			for row in (doc.get("sales_team") if doc else []) or []
 		],
-		"history": [{"erpOrderId": row.name, "docstatus": row.docstatus, "active": row.docstatus == 1} for row in rows],
+		"history": [{"erpOrderId": row.name, "docstatus": row.docstatus, "active": row.docstatus == 1,
+			"erpVersion": str(row.modified) if row.modified else None,
+			"processStatus": row.custom_process_status} for row in rows],
 		"items": [
 			{"crmOrderItemId": row.get("custom_crm_order_item_id"), "erpOrderItemId": row.name,
 			 "item_code": row.item_code, "custom_version": row.get("custom_version"),
@@ -679,11 +682,19 @@ def execute_resubmit(payload):
 	old = next((row for row in history if row.name == payload["erpOrderId"]), None)
 	if not old or cint(old.docstatus) != 2:
 		raise CRMOrderConflict(_("原 ERP 销售订单尚未取消，不能重新提交。"))
+	# History is ordered by creation. A previous rejection must not start a new
+	# branch after a later order has already been amended or cancelled.
+	if old.name != history[-1].name:
+		raise CRMOrderConflict(_("原 ERP 销售订单不是该 CRM 号的最新单据，请重新查询后重提。"))
 	old_doc = frappe.get_doc("Sales Order", old.name)
 	check_version(old_doc, payload, require_same_approval_round=False)
-	if not frappe.db.exists("CRM Order Operation", {"operation_type": "ORDER_REVOKE", "status": "SUCCEEDED", "erp_order_id": old.name}):
-		raise CRMOrderConflict(_("原 ERP 单不是通过 CRM 审批撤回接口取消，不能自动重新提交。"))
-	if cint(payload["crmApprovalRound"]) <= cint(old_doc.get("custom_crm_approval_round") or 1):
+	# Financial rejection uses native cancellation and persists Rejected without
+	# an R3 operation record. Ordinary manual cancellation remains ineligible.
+	if old_doc.custom_process_status != REJECTED and not frappe.db.exists(
+		"CRM Order Operation", {"operation_type": "ORDER_REVOKE", "status": "SUCCEEDED", "erp_order_id": old.name}
+	):
+		raise CRMOrderConflict(_("原 ERP 单未通过 CRM 审批撤回或财务驳回取消，不能自动重新提交。"))
+	if cint(payload["crmApprovalRound"]) <= cint(old_doc.get("custom_crm_approval_round")):
 		raise CRMOrderConflict(_("重新提交的 CRM 审批轮次必须大于原轮次。"))
 	if cint(payload["targetCrmRevision"]) <= cint(old_doc.get("custom_crm_revision")):
 		raise CRMOrderConflict(_("重新提交的 CRM 内容版本必须大于原版本。"))

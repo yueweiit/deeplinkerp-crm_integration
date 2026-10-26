@@ -477,3 +477,5 @@ warehouse {0} 与销售订单行仓库 {1} 冲突。,El almacén {0} entra en co
 crm推送日志,Registros de envío de CRM
 销售出库,Nota de entrega
 没有取消此销售订单的权限，无法驳回。,No tiene permiso para cancelar este pedido de venta; no puede rechazarlo.
+原 ERP 单未通过 CRM 审批撤回或财务驳回取消，不能自动重新提交。,El pedido ERP original no se canceló mediante la retirada de aprobación del CRM ni por rechazo financiero y no puede volver a enviarse automáticamente.
+原 ERP 销售订单不是该 CRM 号的最新单据，请重新查询后重提。,El pedido de venta ERP original no es el documento más reciente para este número de pedido CRM. Consulte el pedido de nuevo antes de volver a enviarlo.

@@ -354,3 +354,5 @@ warehouse {0} 与销售订单行仓库 {1} 冲突。,warehouse {0} conflicts wit
 crm推送日志,CRM Push Logs
 销售出库,Delivery Note
 没有取消此销售订单的权限，无法驳回。,You do not have permission to cancel this Sales Order, so it cannot be rejected.
+原 ERP 单未通过 CRM 审批撤回或财务驳回取消，不能自动重新提交。,The original ERP order was not cancelled through CRM approval withdrawal or financial rejection and cannot be automatically resubmitted.
+原 ERP 销售订单不是该 CRM 号的最新单据，请重新查询后重提。,The original ERP Sales Order is not the latest document for this CRM order number. Query the order again before resubmitting.

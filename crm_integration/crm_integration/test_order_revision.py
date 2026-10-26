@@ -1,7 +1,8 @@
 import hashlib
 import json
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from datetime import date
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import frappe
@@ -17,12 +18,14 @@ from crm_integration.crm_integration.order_revision import (
 	execute_revoke,
 	execute_resubmit,
 	execute_update,
+	get_order_state,
 	get_operation_result,
 	assert_editable,
 	assert_revokeable,
 	eligibility,
 	linked_facts,
 	lock_expected_order,
+	order_names,
 	normalize_revision_date,
 	run_operation,
 	sync_header_delivery_date,
@@ -103,6 +106,12 @@ class TestCRMOrderRevision(UnitTestCase):
 			current, history = current_order("CRM-001", "SO-NEW", "CRM-ID")
 		self.assertEqual(current.name, "SO-NEW")
 		self.assertEqual(len(history), 2)
+
+	def test_history_uses_creation_order_with_a_stable_tiebreaker(self):
+		with patch.object(frappe, "get_all", return_value=[]) as get_all:
+			order_names("CRM-001")
+		self.assertEqual(get_all.call_args.kwargs["order_by"], "creation asc, name asc")
+		self.assertEqual(get_all.call_args.kwargs["limit_page_length"], 0)
 
 	def test_current_order_rejects_two_active_orders(self):
 		rows = [frappe._dict(name=name, docstatus=1) for name in ("SO-A", "SO-B")]
@@ -715,6 +724,202 @@ class TestCRMOrderRevision(UnitTestCase):
 		old_doc.modified = "ERP-V1"
 		with self.assertRaisesRegex(CRMOrderConflict, "CRM 稳定订单 ID 不匹配"):
 			check_version(old_doc, {**payload, "crmOrderId": "OTHER-ID"}, require_same_approval_round=False)
+
+	@contextmanager
+	def resubmission_case(self, *, process_status="Rejected", old_round=0, r3_record=False):
+		old_doc = frappe._dict(name="SO-OLD", modified="ERP-V1", docstatus=2, company="Company",
+			customer="Customer", transaction_date="2026-10-09", custom_process_status=process_status,
+			custom_crm_order_id=None, custom_crm_approval_round=old_round, custom_crm_revision=0)
+		new_doc = MagicMock(modified="ERP-V2", docstatus=1, custom_crm_revision=1,
+			items=[frappe._dict(name="ROW-NEW", custom_crm_order_item_id="LINE-1")])
+		new_doc.name = "SO-NEW"
+		payload = {**self.make_revoke_payload(), "operationType": "ORDER_RESUBMIT",
+			"erpOrderId": "SO-OLD", "crmApprovalRound": 1, "targetCrmRevision": 1,
+			"salesOrder": {"customer": "Customer", "company": "Company", "transaction_date": "2026-10-09",
+				"custom_crm_order_no": "CRM-001", "items": [
+					{"item_code": "ITEM-1", "qty": 1, "rate": 10, "custom_crm_order_item_id": "LINE-1"}]}}
+		with (
+			patch("crm_integration.crm_integration.order_revision.lock_expected_order"),
+			patch("crm_integration.crm_integration.order_revision.current_order", return_value=(None,
+				[frappe._dict(name="SO-OLD", docstatus=2)])),
+			patch("crm_integration.crm_integration.order_revision.is_crm_integration_enabled", return_value=True),
+			patch.object(frappe.db, "exists", return_value=r3_record) as revoke_record,
+			patch.object(frappe, "get_doc", side_effect=[old_doc, new_doc]),
+			patch("crm_integration.crm_integration.api.validate_sales_order_payload"),
+			patch("crm_integration.crm_integration.api.create_sales_order", return_value={"name": "SO-NEW"}) as create,
+		):
+			yield old_doc, payload, create, revoke_record
+
+	def test_finance_rejected_legacy_order_resubmits_from_round_zero_without_r3(self):
+		for old_round in (0, None):
+			with self.subTest(old_round=old_round), self.resubmission_case(old_round=old_round) as case:
+				old_doc, payload, create, revoke_record = case
+				validate_operation(payload, "ORDER_RESUBMIT")
+				result = execute_resubmit(payload)
+				self.assertEqual(result["operationStatus"], "SUCCEEDED")
+				self.assertEqual((result["previousErpOrderId"], result["effectiveErpOrderId"], result["docstatus"]),
+					("SO-OLD", "SO-NEW", 1))
+				created = create.call_args.args[0]
+				self.assertEqual(created["custom_crm_order_no"], "CRM-001")
+				self.assertEqual(created["custom_crm_order_id"], "CRM-ID")
+				self.assertEqual(created["custom_crm_approval_round"], 1)
+				self.assertEqual(created["custom_crm_revision"], 1)
+				self.assertEqual(created["amended_from"], old_doc.name)
+				self.assertEqual(created["transaction_date"], old_doc.transaction_date)
+				self.assertTrue(create.call_args.kwargs["resubmission"])
+				revoke_record.assert_not_called()
+
+	def test_r3_cancelled_legacy_round_zero_also_accepts_round_one(self):
+		with self.resubmission_case(process_status="Cancelled", r3_record=True) as case:
+			_, payload, create, revoke_record = case
+			self.assertEqual(execute_resubmit(payload)["operationStatus"], "SUCCEEDED")
+			revoke_record.assert_called_once_with("CRM Order Operation", {
+				"operation_type": "ORDER_REVOKE", "status": "SUCCEEDED", "erp_order_id": "SO-OLD"})
+			create.assert_called_once()
+
+	def test_legacy_round_zero_does_not_allow_a_nonpositive_request_round(self):
+		for round_value in (0, -1, None):
+			with self.subTest(round_value=round_value), self.resubmission_case() as case:
+				_, payload, create, _ = case
+				with self.assertRaises(frappe.ValidationError):
+					validate_operation({**payload, "crmApprovalRound": round_value}, "ORDER_RESUBMIT")
+				create.assert_not_called()
+
+	def test_successful_resubmission_operation_replay_never_creates_another_order(self):
+		with self.resubmission_case() as case:
+			_, payload, create, _ = case
+			canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+			digest = hashlib.sha256(canonical.encode()).hexdigest()
+			receipt = {"operationStatus": "SUCCEEDED", "effectiveErpOrderId": "SO-NEW", "previousErpOrderId": "SO-OLD"}
+			with (
+				patch("crm_integration.crm_integration.order_revision.validate_crm_api_user"),
+				patch("crm_integration.crm_integration.order_revision.crm_sales_order_creation_lock", return_value=nullcontext()),
+				patch.object(frappe.db, "get_value", return_value=(digest, json.dumps(receipt), "SUCCEEDED")),
+			):
+				result = run_operation(payload, "ORDER_RESUBMIT", execute_resubmit)
+			self.assertTrue(result["idempotentReplay"])
+			self.assertEqual(result["effectiveErpOrderId"], "SO-NEW")
+			create.assert_not_called()
+
+	def test_manual_cancellation_without_rejection_or_r3_cannot_resubmit(self):
+		for process_status in ("Cancelled", None, "Pending Deposit Confirmation"):
+			with self.subTest(process_status=process_status), self.resubmission_case(process_status=process_status) as case:
+				_, payload, create, _ = case
+				with self.assertRaisesRegex(CRMOrderConflict, "未通过 CRM 审批撤回或财务驳回取消"):
+					execute_resubmit(payload)
+				create.assert_not_called()
+
+	def test_resubmit_rejects_ancestor_after_a_newer_order_is_cancelled(self):
+		for latest_status in ("Rejected", "Cancelled"):
+			for round_value, revision in ((1, 1), (5, 10)):
+				with self.subTest(latest_status=latest_status, round=round_value), self.resubmission_case() as case:
+					old_doc, payload, create, _ = case
+					history = [frappe._dict(name=old_doc.name, docstatus=2),
+						frappe._dict(name="SO-OLD-1", docstatus=2, custom_process_status=latest_status)]
+					with patch("crm_integration.crm_integration.order_revision.current_order", return_value=(None, history)):
+						with self.assertRaisesRegex(CRMOrderConflict, "不是该 CRM 号的最新单据"):
+							execute_resubmit({**payload, "crmApprovalRound": round_value, "targetCrmRevision": revision})
+					create.assert_not_called()
+
+	def test_resubmit_does_not_skip_a_newer_draft(self):
+		with self.resubmission_case() as case:
+			old_doc, payload, create, _ = case
+			history = [frappe._dict(name=old_doc.name, docstatus=2), frappe._dict(name="NEW-DRAFT", docstatus=0)]
+			with patch("crm_integration.crm_integration.order_revision.current_order", return_value=(None, history)):
+				with self.assertRaisesRegex(CRMOrderConflict, "不是该 CRM 号的最新单据"):
+					execute_resubmit(payload)
+			create.assert_not_called()
+
+	@contextmanager
+	def multiple_rejection_case(self, *, process_status="Rejected"):
+		with self.resubmission_case(process_status=process_status, old_round=4) as case:
+			old_doc, payload, create, _ = case
+			old_doc.update(name="SO-OLD-1", modified="LATEST-V4", custom_crm_revision=9)
+			payload.update(erpOrderId=old_doc.name, expectedErpVersion=old_doc.modified,
+				crmApprovalRound=5, targetCrmRevision=10)
+			history = [frappe._dict(name="SO-OLD", docstatus=2), frappe._dict(name=old_doc.name, docstatus=2)]
+			with patch("crm_integration.crm_integration.order_revision.current_order", return_value=(None, history)):
+				yield old_doc, payload, create
+
+	def test_latest_rejected_order_preserves_native_amendment_chain(self):
+		from frappe.model.naming import _set_amended_name
+
+		with self.multiple_rejection_case() as (old_doc, payload, create):
+			result = execute_resubmit(payload)
+			self.assertEqual(result["previousErpOrderId"], "SO-OLD-1")
+			created = create.call_args.args[0]
+			self.assertEqual(created["amended_from"], old_doc.name)
+			self.assertEqual((created["custom_crm_approval_round"], created["custom_crm_revision"]), (5, 10))
+			# Exercise native amendment naming without inserting a business document.
+			draft = SimpleNamespace(doctype="Sales Order", amended_from=created["amended_from"], name=None)
+			with (
+				patch.object(frappe.db, "get_value", side_effect=[None, "SO-OLD"]),
+				patch.object(frappe, "get_single_value", return_value="Amend Counter"),
+			):
+				_set_amended_name(draft)
+			self.assertEqual(draft.name, "SO-OLD-2")
+
+	def test_latest_resubmission_checks_latest_versions_and_rounds(self):
+		for field, value in (("expectedErpVersion", "ERP-V1"), ("crmApprovalRound", 4), ("targetCrmRevision", 9)):
+			with self.subTest(field=field), self.multiple_rejection_case() as (_, payload, create):
+				with self.assertRaises(CRMOrderConflict):
+					execute_resubmit({**payload, field: value})
+				create.assert_not_called()
+
+	def test_latest_manual_cancellation_still_requires_an_r3_record(self):
+		with self.multiple_rejection_case(process_status="Cancelled") as (_, payload, create):
+			with self.assertRaisesRegex(CRMOrderConflict, "未通过 CRM 审批撤回或财务驳回取消"):
+				execute_resubmit(payload)
+			create.assert_not_called()
+
+	def test_rejection_does_not_skip_active_order_or_native_cancel_checks(self):
+		for current, history in ((MagicMock(), []), (None, [frappe._dict(name="SO-OLD", docstatus=1)])):
+			with self.subTest(current=bool(current)), self.resubmission_case() as case:
+				_, payload, create, _ = case
+				with patch("crm_integration.crm_integration.order_revision.current_order", return_value=(current, history)):
+					with self.assertRaises(CRMOrderConflict):
+						execute_resubmit(payload)
+				create.assert_not_called()
+
+	def test_rejected_orders_require_increasing_round_and_revision(self):
+		for new_round, revision in ((2, 1), (1, 1), (3, 0)):
+			with self.subTest(new_round=new_round, revision=revision), self.resubmission_case(old_round=2) as case:
+				_, payload, create, _ = case
+				with self.assertRaises(CRMOrderConflict):
+					execute_resubmit({**payload, "crmApprovalRound": new_round, "targetCrmRevision": revision})
+				create.assert_not_called()
+		with self.resubmission_case(old_round=2) as case:
+			_, payload, create, _ = case
+			self.assertEqual(execute_resubmit({**payload, "crmApprovalRound": 3})["operationStatus"], "SUCCEEDED")
+			create.assert_called_once()
+
+	def test_rejected_legacy_resubmit_preserves_identity_and_version_guards(self):
+		for field, value in (("expectedErpVersion", "STALE"), ("customer", "OTHER"), ("company", "OTHER"),
+			("custom_crm_order_no", "OTHER"), ("transaction_date", "2026-10-10"), ("crmOrderId", "OTHER-ID")):
+			with self.subTest(field=field), self.resubmission_case() as case:
+				old_doc, payload, create, _ = case
+				old_doc.custom_crm_order_id = "CRM-ID"
+				if field in ("expectedErpVersion", "crmOrderId"):
+					payload[field] = value
+				else:
+					payload["salesOrder"][field] = value
+				with self.assertRaises(CRMOrderConflict):
+					execute_resubmit(payload)
+				create.assert_not_called()
+
+	def test_r1_exposes_cancelled_history_version_without_marking_it_effective(self):
+		rows = [frappe._dict(name="SO-OLD", docstatus=2, modified="CANCELLED-V2", custom_process_status="Rejected")]
+		with (
+			patch("crm_integration.crm_integration.order_revision.validate_crm_api_user"),
+			patch("crm_integration.crm_integration.order_revision.current_order", return_value=(None, rows)),
+		):
+			state = get_order_state("CRM-001", "CRM-ID", "SO-OLD")
+		self.assertIsNone(state["effectiveErpOrderId"])
+		self.assertIsNone(state["erpVersion"])
+		self.assertFalse(state["canEdit"])
+		self.assertFalse(state["canRevoke"])
+		self.assertEqual(state["history"], [{"erpOrderId": "SO-OLD", "docstatus": 2, "active": False,
+			"erpVersion": "CANCELLED-V2", "processStatus": "Rejected"}])
 
 	def test_draft_purchase_order_is_reported_as_structural_link(self):
 		doc = MagicMock(name="SO-001", items=[frappe._dict(name="ROW-1")])
