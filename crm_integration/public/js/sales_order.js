@@ -310,8 +310,8 @@ function replace_cancel_button_with_reject(frm) {
 		$reject_button
 			.removeClass("crm-native-cancel-hidden hidden hide btn-default btn-secondary")
 			.addClass("crm-reject-cancel-button btn-primary primary-action")
-			.attr("data-label", encodeURIComponent(__("财务驳回")))
-			.text(__("财务驳回"))
+			.attr("data-label", encodeURIComponent(__("驳回")))
+			.text(__("驳回"))
 			.off("click.crmReject")
 			.on("click.crmReject", function(e) {
 				e.preventDefault();

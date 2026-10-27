@@ -26,7 +26,7 @@ test("reject is shown per order only when the server grants that action",()=>{
  const eligible=finance.rowsHTML([{name:"SO-1",can_reject:true}]);
  const blocked=finance.rowsHTML([{name:"SO-2",can_reject:false}]);
  assert.match(eligible,/crm-release-reject/);
- assert.match(eligible,/财务驳回/);
+ assert.match(eligible,/>驳回<\/button>/);
  assert.match(eligible,/data-name="SO-1"/);
  assert.ok(!blocked.includes("crm-release-reject"));
 });
