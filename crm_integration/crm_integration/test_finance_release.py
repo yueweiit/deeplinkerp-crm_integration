@@ -110,6 +110,66 @@ class TestFinanceRelease(UnitTestCase):
 			row = release.get_finance_release_review(["SO-HIDDEN"])["orders"][0]
 		self.assertEqual(set(row), {"name", "can_release", "can_reject", "reason", "reject_reason"})
 
+	def test_latest_failed_mes_push_exposes_only_an_actionable_summary(self):
+		rows = [{"name": "SO-1", "process_status": release.PENDING, "sync_error": None}]
+		audit = frappe._dict(reference_name="SO-1", creation="2026-10-26 10:00:00", status="Failed")
+		log = frappe._dict(reference_name="SO-1", creation="2026-10-26 10:01:00", status="Failed", http_status_code="409",
+			response_payload='{"errorCode":"ERP_SALES_ORDER_IDENTITY_CONFLICT","message":"private details <script>"}')
+		with patch.object(frappe.db, "exists", return_value=True), patch.object(release, "latest_order_logs", side_effect=[[audit], [log]]) as query:
+			release.attach_sync_errors(rows)
+		self.assertEqual(rows[0]["sync_error"]["code"], "ERP_SALES_ORDER_IDENTITY_CONFLICT")
+		self.assertEqual(rows[0]["sync_status"], "Failed")
+		self.assertTrue(rows[0]["sync_error"]["message"])
+		self.assertNotIn("private details", str(rows[0]))
+		self.assertEqual(query.call_count, 2)
+		self.assertEqual(query.call_args.kwargs["since"], audit.creation)
+
+	def test_sync_summary_ignores_older_failure_after_a_later_success(self):
+		rows = [{"name": "SO-1", "process_status": release.PENDING, "sync_error": None}]
+		audit = frappe._dict(reference_name="SO-1", creation="2026-10-26 10:00:00", status="Failed")
+		latest = frappe._dict(reference_name="SO-1", creation="2026-10-26 10:02:00", status="Success", http_status_code="200", response_payload="{}")
+		with patch.object(frappe.db, "exists", return_value=True), patch.object(release, "latest_order_logs", side_effect=[[audit], [latest]]):
+			release.attach_sync_errors(rows)
+		self.assertIsNone(rows[0]["sync_error"])
+		self.assertEqual(rows[0]["sync_status"], "Failed")
+
+	def test_sync_summary_requires_release_permission_and_readable_order(self):
+		rows = [{"name": "SO-HIDDEN", "sync_error": None}]
+		with patch.object(frappe.db, "exists", return_value=True), patch.object(release, "latest_order_logs") as query:
+			release.attach_sync_errors(rows)
+		query.assert_not_called()
+		with patch.object(release, "has_release_permission", return_value=False), patch.object(frappe.db, "exists", return_value=True), patch.object(release, "latest_order_logs") as query:
+			release.attach_sync_errors([{"name": "SO-1", "process_status": release.PENDING, "sync_error": None}])
+		query.assert_not_called()
+
+	def test_release_operator_sees_only_safe_failure_state_without_log_read_permission(self):
+		with patch.object(frappe.db, "exists", return_value=True), patch.object(frappe, "has_permission", return_value=False), patch.object(frappe, "get_list") as readable_logs:
+			row = release.review_order(self.doc)
+			with patch.object(release, "latest_order_logs", side_effect=[[frappe._dict(reference_name="SO-1", creation="2026-10-26 10:00:00", status="Failed")], []]) as query:
+				release.attach_sync_errors([row])
+		self.assertIsNone(row["last_confirmation"])
+		self.assertEqual(row["sync_status"], "Failed")
+		self.assertIsNone(row["sync_error"])
+		readable_logs.assert_not_called()
+		self.assertEqual(query.call_count, 2)
+
+	def test_generic_mes_error_code_is_visible_without_raw_response(self):
+		log = frappe._dict(response_payload='{"errorCode":"ORDER_INVALID","message":"private payload"}', http_status_code="422")
+		summary = release.mes_push_failure_summary(log)
+		self.assertEqual(summary["code"], "ORDER_INVALID")
+		self.assertIn("ORDER_INVALID", summary["message"])
+		self.assertNotIn("private payload", str(summary))
+		invalid = release.mes_push_failure_summary(frappe._dict(response_payload='{"errorCode":"<script>"}', http_status_code="500"))
+		self.assertEqual(invalid["code"], "HTTP 500")
+		self.assertIn("HTTP 500", invalid["message"])
+
+	def test_latest_log_query_accepts_the_set_and_mapping_used_by_review(self):
+		name = "__finance_release_missing_order__"
+		for names in ({name}, {name: True}):
+			with self.subTest(names=type(names).__name__):
+				self.assertEqual(release.latest_order_logs("CRM Integration Log", release.AUDIT_EVENT, names,
+					("reference_name", "creation", "status")), [])
+
 	def test_confirmation_aborts_when_audit_cannot_be_saved(self):
 		doc = MagicMock(); doc.name = "SO-1"; doc.company = "MX"; doc.docstatus = 1
 		doc.get.side_effect = self.doc.get

@@ -1,9 +1,12 @@
 """Manual financial authorization. Deposit agreements stay outside the system."""
 import json
+import re
 
 import frappe
 from frappe import _
 from frappe.model import get_permitted_fields
+from pypika import Order
+from pypika.analytics import RowNumber
 
 from crm_integration.crm_integration.settings import is_crm_integration_enabled
 
@@ -83,8 +86,62 @@ def reject_reason(doc, crm_enabled):
 	return ""
 
 
+def mes_push_failure_summary(log):
+	"""Return an actionable summary without exposing the MES response or traceback."""
+	try:
+		response = json.loads(log.get("response_payload") or "{}")
+	except (TypeError, ValueError):
+		response = {}
+	code = response.get("errorCode") if isinstance(response, dict) else None
+	if code == "ERP_SALES_ORDER_IDENTITY_CONFLICT":
+		return {"code": code, "message": _("MES 订单映射冲突，请核对 ERP/CRM 单号与 MES 既有映射，处理冲突后重试。")}
+	if isinstance(code, str) and re.fullmatch(r"[A-Za-z0-9_]{1,64}", code):
+		return {"code": code, "message": _("MES 拒绝订单下发（错误码：{0}），请联系集成管理员核对日志。").format(code)}
+	status = frappe.utils.cint(log.get("http_status_code"))
+	if 400 <= status < 600:
+		return {"code": f"HTTP {status}", "message": _("MES 订单下发失败（{0}），请联系集成管理员核对日志。").format(f"HTTP {status}")}
+	return {"code": "", "message": _("MES 订单下发失败，请联系集成管理员核对日志。")}
+
+
+def latest_order_logs(doctype, event, names, fields, since=None):
+	"""Fetch one latest log per readable order; never load whole histories or old payloads."""
+	log = frappe.qb.DocType(doctype)
+	rank = RowNumber().over(log.reference_name).orderby(log.creation, order=Order.desc).orderby(log.name, order=Order.desc).as_("row_num")
+	query = (frappe.qb.from_(log)
+		.select(log.name, rank)
+		.where((log.event == event) & (log.reference_doctype == "Sales Order") & log.reference_name.isin(list(names))))
+	if since is not None:
+		query = query.where(log.creation >= since)
+	ranked = query.as_("ranked")
+	return (frappe.qb.from_(ranked).join(log).on(log.name == ranked.name)
+		.select(*(getattr(log, field) for field in fields))
+		.where(ranked.row_num == 1).run(as_dict=True))
+
+
+def attach_sync_errors(rows):
+	"""Add safe sync status and latest failed MES attempt for authorized, readable orders."""
+	names = {row["name"] for row in rows if row.get("process_status") == PENDING}
+	if not names or not has_release_permission() or not all(frappe.db.exists("DocType", doctype) for doctype in ("CRM Integration Log", "MES Integration Log")):
+		return
+	audits = latest_order_logs("CRM Integration Log", AUDIT_EVENT, names, ("reference_name", "creation", "status"))
+	by_name = {row["name"]: row for row in rows if row["name"] in names}
+	for audit in audits:
+		if audit.status in {"Pending", "Success", "Failed"}:
+			by_name[audit.reference_name]["sync_status"] = audit.status
+	failed = {audit.reference_name: audit for audit in audits if audit.status == "Failed"}
+	if not failed:
+		return
+	logs = latest_order_logs("MES Integration Log", "Sales Order Push To MES", failed,
+		("reference_name", "creation", "status", "response_payload", "http_status_code"),
+		since=min(audit.creation for audit in failed.values()))
+	for log in logs:
+		row = by_name.get(log.reference_name)
+		if row and log.creation >= failed[log.reference_name].creation and log.status == "Failed":
+			row["sync_error"] = mes_push_failure_summary(log)
+
+
 def review_order(doc):
-	data = {"name": doc.name, "process_status": doc.get("custom_process_status"), "can_release": False, "can_reject": False, "reason": "", "reject_reason": ""}
+	data = {"name": doc.name, "process_status": doc.get("custom_process_status"), "can_release": False, "can_reject": False, "reason": "", "reject_reason": "", "sync_error": None, "sync_status": None}
 	fields = readable_fields("Sales Order")
 	for field in ("company", "custom_crm_order_no", "customer_name", "currency", "grand_total", "advance_paid", "party_account_currency"):
 		if field in fields:
@@ -132,6 +189,7 @@ def get_finance_release_review(sales_orders):
 		except (frappe.PermissionError, frappe.DoesNotExistError):
 			reason = _("订单不存在或不在当前可见范围内。")
 			rows.append({"name": name, "can_release": False, "can_reject": False, "reason": reason, "reject_reason": reason})
+	attach_sync_errors(rows)
 	return {"orders": rows, "manual_confirmation": True}
 
 

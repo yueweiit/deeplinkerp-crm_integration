@@ -477,5 +477,9 @@ warehouse {0} 与销售订单行仓库 {1} 冲突。,El almacén {0} entra en co
 crm推送日志,Registros de envío de CRM
 销售出库,Nota de entrega
 没有取消此销售订单的权限，无法驳回。,No tiene permiso para cancelar este pedido de venta; no puede rechazarlo.
+MES 订单映射冲突，请核对 ERP/CRM 单号与 MES 既有映射，处理冲突后重试。,"Conflicto en la asociación del pedido en MES. Compare los números de pedido de ERP y CRM con la asociación existente en MES y resuelva el conflicto antes de reintentar."
+MES 拒绝订单下发（错误码：{0}），请联系集成管理员核对日志。,"MES rechazó el pedido (código de error: {0}). Solicite al administrador de integración que revise el registro."
+MES 订单下发失败（{0}），请联系集成管理员核对日志。,"No se pudo enviar el pedido a MES ({0}). Solicite al administrador de integración que revise el registro."
+MES 订单下发失败，请联系集成管理员核对日志。,"No se pudo enviar el pedido a MES. Solicite al administrador de integración que revise el registro."
 原 ERP 单未通过 CRM 审批撤回或财务驳回取消，不能自动重新提交。,El pedido ERP original no se canceló mediante la retirada de aprobación del CRM ni por rechazo financiero y no puede volver a enviarse automáticamente.
 原 ERP 销售订单不是该 CRM 号的最新单据，请重新查询后重提。,El pedido de venta ERP original no es el documento más reciente para este número de pedido CRM. Consulte el pedido de nuevo antes de volver a enviarlo.

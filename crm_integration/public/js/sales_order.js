@@ -444,7 +444,7 @@ function reconcile_final_payment(frm) {
 function confirm_deposit_and_push_to_mes(frm) {
 	const open = () => window.CRMFinanceRelease.open([frm.doc.name], () => frm.reload_doc());
 	if (window.CRMFinanceRelease) return open();
-	return frappe.require("/assets/crm_integration/js/finance_release.js").then(open);
+	return frappe.require("/assets/crm_integration/js/finance_release.js?v=0.0.4").then(open);
 }
 
 function format_sales_order_currency(frm, value) {

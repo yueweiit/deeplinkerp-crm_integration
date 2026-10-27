@@ -354,5 +354,9 @@ warehouse {0} 与销售订单行仓库 {1} 冲突。,warehouse {0} conflicts wit
 crm推送日志,CRM Push Logs
 销售出库,Delivery Note
 没有取消此销售订单的权限，无法驳回。,You do not have permission to cancel this Sales Order, so it cannot be rejected.
+MES 订单映射冲突，请核对 ERP/CRM 单号与 MES 既有映射，处理冲突后重试。,"MES order mapping conflict. Check the ERP and CRM order numbers against the existing MES mapping, then resolve the conflict before retrying."
+MES 拒绝订单下发（错误码：{0}），请联系集成管理员核对日志。,"MES rejected the order (error code: {0}). Ask an integration administrator to check the log."
+MES 订单下发失败（{0}），请联系集成管理员核对日志。,"Failed to send the order to MES ({0}). Ask an integration administrator to check the log."
+MES 订单下发失败，请联系集成管理员核对日志。,"Failed to send the order to MES. Ask an integration administrator to check the log."
 原 ERP 单未通过 CRM 审批撤回或财务驳回取消，不能自动重新提交。,The original ERP order was not cancelled through CRM approval withdrawal or financial rejection and cannot be automatically resubmitted.
 原 ERP 销售订单不是该 CRM 号的最新单据，请重新查询后重提。,The original ERP Sales Order is not the latest document for this CRM order number. Query the order again before resubmitting.

@@ -37,3 +37,23 @@ test("button wording identifies production and displays the selected count",()=>
 test("current synchronized status wins over an older failed attempt",()=>{
  assert.match(finance.stateLabel({process_status:"Pending Production",last_confirmation:{status:"Failed"}}),/已完成/);
 });
+
+test("failed MES response shows the safe summary and escapes it in the review drawer",()=>{
+ const row={name:"SO-1",process_status:"Pending Deposit Confirmation",last_confirmation:{status:"Failed"},sync_error:{code:"ERP_SALES_ORDER_IDENTITY_CONFLICT",message:"MES 订单映射冲突，请核对 ERP/CRM 单号与 MES 既有映射，处理冲突后重试。"}};
+ assert.match(finance.stateLabel(row),/订单映射冲突/);
+ assert.match(finance.rowsHTML([{...row,sync_error:{message:"<script>x</script>"}}]),/&lt;script&gt;x&lt;\/script&gt;/);
+});
+
+test("release operator without log read permission sees failure and can retry",()=>{
+ const row={name:"SO-1",process_status:"Pending Deposit Confirmation",can_release:true,last_confirmation:null,sync_status:"Failed",sync_error:null};
+ assert.equal(finance.failedReview(row),true);
+ assert.match(finance.stateLabel(row),/同步失败/);
+ const results=[{name:row.name,state:"processing"}];
+ finance.reconcileResults(results,[row]);
+ assert.deepEqual(finance.retryNames(results),["SO-1"]);
+ assert.equal(finance.failedReview({...row,state:undefined,process_status:"Deposit Confirmation Processing",sync_status:"Pending"}),false);
+ const stillProcessing={name:"SO-2",process_status:"Deposit Confirmation Processing",sync_status:"Failed"};
+ const inFlight=[{name:"SO-2",state:"processing"}];
+ finance.reconcileResults(inFlight,[stillProcessing]);
+ assert.equal(inFlight[0].state,"processing");
+});

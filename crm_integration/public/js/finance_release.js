@@ -14,11 +14,19 @@
 	let active = null;
 	function eligibleNames(rows) { return rows.filter(row => row.can_release).map(row => row.name); }
 	function retryNames(rows) { return rows.filter(row => row.state === "failed").map(row => row.name); }
+	function failedReview(row) { return row.state === "failed" || row.sync_status === "Failed" || row.last_confirmation?.status === "Failed"; }
+	function reconcileResults(results, review) {
+		for (const result of results) {
+			const row = review.find(item => item.name === result.name);
+			if (result.state === "processing" && row?.process_status === "Pending Deposit Confirmation" && failedReview(row)) result.state = "failed";
+			if (row && result.state === "failed") row.state = "failed";
+		}
+	}
 	function stateLabel(row) {
 		if (row.process_status === "Rejected") return t("Rejected");
 		if (["Pending Production", "Pending Final Payment", "Deliverable", "Partially Delivered", "Completed"].includes(row.process_status)) return t("已完成生产放行同步");
 		if (row.process_status === "Deposit Confirmation Processing" || row.state === "processing") return t("CRM/MES 同步处理中");
-		if (row.state === "failed" || row.last_confirmation?.status === "Failed") return t("同步失败，可重新核验后重试");
+		if (failedReview(row)) return row.sync_error?.message || t("同步失败，可重新核验后重试");
 		return row.can_release ? t("待人工确认允许生产") : row.reason || t("不可处理");
 	}
 	function rowsHTML(rows) {
@@ -57,11 +65,7 @@
 		}
 		async function poll(count = 0) {
 			if (!await load(scope)) return;
-			for (const result of results) {
-				const row = review.find(item => item.name === result.name);
-				if (result.state === "processing" && row?.last_confirmation?.status === "Failed") result.state = "failed";
-				if (row && result.state === "failed") row.state = "failed";
-			}
+			reconcileResults(results, review);
 			paint();
 			if (active === instance && review.some(row => row.process_status === "Deposit Confirmation Processing") && count < 12) timer = setTimeout(() => poll(count + 1), 5000);
 		}
@@ -102,5 +106,5 @@
 		panel.find(".crm-release-close").first().trigger("focus"); await load(unique);
 	}
 	if (root.frappe?.router) root.frappe.router.on("change", () => active?.close(true));
-	return { open, eligibleNames, retryNames, stateLabel, rowsHTML, buttonLabel };
+	return { open, eligibleNames, retryNames, failedReview, reconcileResults, stateLabel, rowsHTML, buttonLabel };
 });
