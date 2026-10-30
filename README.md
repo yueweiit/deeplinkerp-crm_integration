@@ -46,6 +46,12 @@ CRM 集成日志的 `http_status_code=0` 表示没有可用的 HTTP 状态码；
 暂停期间不生成这两类出站日志，任务不会自动补发；恢复前应按 ERP Delivery Note 与 CRM 对账，
 然后在目标站点将开关设为 `1` 并按发布流程重启相关进程。
 
+### 财务放行失败时的 CRM 响应日志
+
+`push_sales_order_status_to_crm` 遇到 HTTP 4xx/5xx、连接失败或超时时，以既有 `ValidationError` 携带脱敏的失败证据；不提前提交业务事务。`confirm_deposit_and_push_to_mes_job` 完成业务回滚、恢复待确认状态后，重建具体失败事件（如 `Confirmed Deposit Push Production` / `In Production`）的 CRM 集成日志，并在 `Confirm Deposit External Sync` 中保存同一请求摘要、响应、HTTP 状态、外部状态和 traceId，随既有失败审计事务提交。此前被回滚的历史响应无法通过此次修改恢复。
+
+日志不保存鉴权请求头、备注及附件；请求仅保留系统来源、ERP/CRM 单号、审批轮次、状态和 traceId。URL 移除用户信息、查询参数和片段；失败响应和异常说明对凭据字段、已知密钥及常见鉴权文本做脱敏，带空格、转义字符或未闭合引号的凭据值整体遮盖；输出限制深度、节点和文本长度。大响应优先保留 errorCode/code、traceId、message 等诊断摘要，先固定字段名再处理值，被截断的 data/errors 保留字段名并显示截断标记。无 HTTP 响应时状态码记 `0`，保留异常类型。成功请求、状态恢复、收款和财务权限规则不变。此修复复用现有日志字段，无新增数据库结构；定位测试见 `test_status_push_failure.py`，生产仍需发布新代码并重启相关进程。
+
 ### 按产品配置直接履约
 
 管理员打开 **公司 → 对应公司 → 无需 MES 生产的产品编码前缀**，每行填写一个产品的三位编码，例如默认的 `NSF`（钢化膜）。以后增加免生产产品只需在名单中增加该产品编码，无需修改 Python、逐个型号建规则或重新构建镜像。该公司下同一产品的不同型号、颜色等明细全部随整张订单放行；识别取物料编码前三位，不取第一个型号决定其他产品。名单按公司隔离，清空表示该公司无免生产产品。支持换行、逗号或分号分隔并自动统一大写、去重，拒绝不足/超过三位及通配符；仅 System Manager / Administrator 可修改，Company 普通编辑权限不会获得该规则的修改权，服务端 Company validate hook 同时校验。

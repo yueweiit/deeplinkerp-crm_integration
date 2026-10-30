@@ -8,6 +8,7 @@ from frappe.utils import cint, flt, now
 from frappe.utils.data import get_datetime
 
 from crm_integration.crm_integration.integration_log import create_crm_log, update_crm_log
+from crm_integration.crm_integration.status_push_failure import status_failure_evidence, status_request_evidence
 from crm_integration.crm_integration.production_routing import (
 	DIRECT, MES, assert_order_route_schema, is_direct_fulfillment_order,
 	record_completed_route, validate_production_route,
@@ -266,12 +267,13 @@ def push_sales_order_status_to_crm(
 		reference_doctype="Sales Order",
 		reference_name=sales_order.name,
 		source="ERPNext",
-		request_url=request_url,
-		request_payload=payload,
+		**status_request_evidence(request_url, payload, headers["X-API-Key"]),
 		trace_id=payload["traceId"],
 		external_status=external_status,
 	)
 
+	failure = None
+	response = None
 	try:
 		response = requests.post(
 			request_url,
@@ -283,19 +285,30 @@ def push_sales_order_status_to_crm(
 		response_payload = parse_crm_response(response)
 		response.raise_for_status()
 	except requests.RequestException as exc:
-		response = getattr(exc, "response", None)
+		if getattr(exc, "response", None) is not None:
+			response = exc.response
+		evidence = status_failure_evidence(
+			order_name=sales_order.name, event=get_crm_status_event(external_status),
+			url=request_url, payload=payload, response_payload=parse_crm_response(response),
+			response=response, error=exc, api_key=headers["X-API-Key"],
+		)
 		update_crm_log(
 			crm_log,
 			status="Failed",
-			response_payload=parse_crm_response(response),
-			error_message=frappe.get_traceback(),
-			http_status_code=getattr(response, "status_code", None),
+			response_payload=evidence["response_payload"],
+			error_message=evidence["error_message"],
+			http_status_code=evidence["http_status_code"],
 		)
 		frappe.log_error(
 			title=_("CRM 状态推送失败"),
-			message=frappe.get_traceback(),
+			message=evidence["error_message"],
 		)
-		frappe.throw(_("CRM 状态推送失败：{0}").format(str(exc)))
+		failure = frappe.ValidationError()
+		failure.crm_status_failure = evidence
+
+	if failure is not None:
+		# Raise outside the requests handler so raw URL/credential exceptions are not chained.
+		frappe.throw(_("CRM 状态推送失败：{0}").format(failure.crm_status_failure["error_message"]), exc=failure)
 
 	update_crm_log(
 		crm_log,
@@ -960,13 +973,17 @@ def confirm_deposit_and_push_to_mes_job(sales_order_name, audit_log=None):
 			from crm_integration.crm_integration.finance_release import update_finance_audit
 			update_finance_audit(audit_log, sales_order_name, "Success", result["process_status"], fulfillment_route=result.get("fulfillment_route"))
 		return result
-	except Exception:
-		error_message = frappe.get_traceback()
+	except Exception as exc:
+		failure = getattr(exc, "crm_status_failure", None)
+		error_message = failure["error_message"] if failure else frappe.get_traceback()
 		frappe.db.rollback()
 		restore_deposit_confirmation_after_failure(sales_order_name)
 		if audit_log:
 			from crm_integration.crm_integration.finance_release import update_finance_audit
 			update_finance_audit(audit_log, sales_order_name, "Failed", PENDING_DEPOSIT_CONFIRMATION)
+		if failure:
+			# The inner HTTP log was rolled back together with the business transaction.
+			create_crm_log(**failure)
 		create_crm_log(
 			direction="Outbound",
 			event="Confirm Deposit External Sync",
@@ -974,7 +991,14 @@ def confirm_deposit_and_push_to_mes_job(sales_order_name, audit_log=None):
 			reference_doctype="Sales Order",
 			reference_name=sales_order_name,
 			source="ERPNext",
-			request_payload={"sales_order": sales_order_name},
+			request_payload={"sales_order": sales_order_name, **(
+				{"crm_status_request": failure["request_payload"]} if failure else {}
+			)},
+			response_payload=failure["response_payload"] if failure else None,
+			request_url=failure["request_url"] if failure else None,
+			http_status_code=failure["http_status_code"] if failure else 0,
+			trace_id=failure["trace_id"] if failure else None,
+			external_status=failure["external_status"] if failure else None,
 			error_message=error_message,
 		)
 		frappe.db.commit()
