@@ -24,13 +24,14 @@
 	}
 	function stateLabel(row) {
 		if (row.process_status === "Rejected") return t("Rejected");
-		if (["Pending Production", "Pending Final Payment", "Deliverable", "Partially Delivered", "Completed"].includes(row.process_status)) return t("已完成生产放行同步");
+		if (row.fulfillment_route === "UNKNOWN") return t("Historical order fulfillment route is unknown. Verify its original MES handling before retrying.");
+		if (["Pending Production", "Pending Final Payment", "Deliverable", "Partially Delivered", "Completed"].includes(row.process_status)) return row.fulfillment_route === "DIRECT" ? t("已完成财务放行（无需 MES 生产）") : t("已完成生产放行同步");
 		if (row.process_status === "Deposit Confirmation Processing" || row.state === "processing") return t("CRM/MES 同步处理中");
 		if (failedReview(row)) return row.sync_error?.message || t("同步失败，可重新核验后重试");
 		return row.can_release ? t("待人工确认允许生产") : row.reason || t("不可处理");
 	}
 	function rowsHTML(rows) {
-		return rows.map(row => `<tr><td>${link("sales-order", row.name)}${row.custom_crm_order_no ? `<small>${esc(row.custom_crm_order_no)}</small>` : ""}<small>${esc(row.customer_name || "")}</small></td><td>${row.grand_total === undefined ? "—" : money(row.grand_total, row.currency)}</td><td>${(row.receipts || []).map(payment => `${link("payment-entry", payment.name)} · ${esc(payment.posting_date)}<br>${esc(t(payment.docstatus === 1 ? "已提交" : payment.docstatus === 2 ? "已取消" : "草稿"))} · ${esc(t(payment.payment_type))} · ${money(payment.allocated_amount, payment.currency)}`).join("<hr>") || esc(t("未找到可见的关联收款记录"))}${row.receipts_complete === false ? `<p class="text-muted">${esc(t("收款记录可能不完整"))}</p>` : ""}</td><td>${esc(stateLabel(row))}${row.last_confirmation ? `<small>${esc(row.last_confirmation.user)} · ${esc(row.last_confirmation.creation)}</small>` : ""}${row.can_reject ? `<button type="button" class="btn btn-default btn-xs crm-release-reject" data-name="${esc(row.name)}">${esc(t("驳回"))}</button>` : ""}</td></tr>`).join("");
+		return rows.map(row => `<tr><td>${link("sales-order", row.name)}${row.custom_crm_order_no ? `<small>${esc(row.custom_crm_order_no)}</small>` : ""}<small>${esc(row.customer_name || "")}</small></td><td>${row.grand_total === undefined ? "—" : money(row.grand_total, row.currency)}</td><td>${(row.receipts || []).map(payment => `${link("payment-entry", payment.name)} · ${esc(payment.posting_date)}<br>${esc(t(payment.docstatus === 1 ? "已提交" : payment.docstatus === 2 ? "已取消" : "草稿"))} · ${esc(t(payment.payment_type))} · ${money(payment.allocated_amount, payment.currency)}`).join("<hr>") || esc(t("未找到可见的关联收款记录"))}${row.receipts_complete === false ? `<p class="text-muted">${esc(t("收款记录可能不完整"))}</p>` : ""}</td><td>${esc(stateLabel(row))}${row.fulfillment_route === "DIRECT" ? `<small>${esc(t("该产品无需 MES 生产，仍需核销尾款后发货。"))}</small>` : ""}${row.last_confirmation ? `<small>${esc(row.last_confirmation.user)} · ${esc(row.last_confirmation.creation)}</small>` : ""}${row.can_reject ? `<button type="button" class="btn btn-default btn-xs crm-release-reject" data-name="${esc(row.name)}">${esc(t("驳回"))}</button>` : ""}</td></tr>`).join("");
 	}
 	async function open(names, onUpdate) {
 		if (active) return;

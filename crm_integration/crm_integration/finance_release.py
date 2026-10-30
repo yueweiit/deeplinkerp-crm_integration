@@ -9,6 +9,7 @@ from pypika import Order
 from pypika.analytics import RowNumber
 
 from crm_integration.crm_integration.settings import is_crm_integration_enabled
+from crm_integration.crm_integration.production_routing import MIXED, UNKNOWN, get_effective_production_route
 
 CAPABILITY = "Sales Production Release Permission"
 AUDIT_EVENT = "Finance Production Release"
@@ -103,7 +104,7 @@ def mes_push_failure_summary(log):
 	return {"code": "", "message": _("MES 订单下发失败，请联系集成管理员核对日志。")}
 
 
-def latest_order_logs(doctype, event, names, fields, since=None):
+def latest_order_logs(doctype, event, names, fields, since=None, status=None):
 	"""Fetch one latest log per readable order; never load whole histories or old payloads."""
 	log = frappe.qb.DocType(doctype)
 	rank = RowNumber().over(log.reference_name).orderby(log.creation, order=Order.desc).orderby(log.name, order=Order.desc).as_("row_num")
@@ -112,6 +113,8 @@ def latest_order_logs(doctype, event, names, fields, since=None):
 		.where((log.event == event) & (log.reference_doctype == "Sales Order") & log.reference_name.isin(list(names))))
 	if since is not None:
 		query = query.where(log.creation >= since)
+	if status is not None:
+		query = query.where(log.status == status)
 	ranked = query.as_("ranked")
 	return (frappe.qb.from_(ranked).join(log).on(log.name == ranked.name)
 		.select(*(getattr(log, field) for field in fields))
@@ -143,6 +146,9 @@ def attach_sync_errors(rows):
 def review_order(doc):
 	data = {"name": doc.name, "process_status": doc.get("custom_process_status"), "can_release": False, "can_reject": False, "reason": "", "reject_reason": "", "sync_error": None, "sync_status": None}
 	fields = readable_fields("Sales Order")
+	route = get_effective_production_route(doc)
+	if "items" in fields and {"item_code", "qty"} <= readable_fields("Sales Order Item", "Sales Order"):
+		data["fulfillment_route"] = route
 	for field in ("company", "custom_crm_order_no", "customer_name", "currency", "grand_total", "advance_paid", "party_account_currency"):
 		if field in fields:
 			data[field] = doc.get(field)
@@ -166,6 +172,10 @@ def review_order(doc):
 		data["reason"] = _("CRM/MES 同步处理中，请勿重复确认。")
 	elif doc.get("custom_process_status") != PENDING:
 		data["reason"] = _("本单当前不处于待财务放行状态。")
+	elif route == MIXED:
+		data["reason"] = _("直接履约产品与其他产品不能在同一订单放行，请按产品拆分销售订单后重试。")
+	elif route == UNKNOWN:
+		data["reason"] = _("Historical order fulfillment route is unknown. Verify its original MES handling before retrying.")
 	elif data["association_error"]:
 		data["reason"] = _("收款与订单的公司或客户关联异常，请先核对原生单据。")
 	else:
@@ -242,11 +252,14 @@ def production_order_condition(sales_order_table):
 	return ~ExistsCriterion(crm_company) | sales_order_table.custom_process_status.isin(sorted(RELEASED_STATES))
 
 
-def update_finance_audit(name, order_name, status, process_status):
+def update_finance_audit(name, order_name, status, process_status, fulfillment_route=None):
 	# Financial audit is mandatory; the general integration logger is intentionally best-effort.
 	if frappe.db.get_value("CRM Integration Log", name, ["event", "reference_name"]) != (AUDIT_EVENT, order_name):
 		frappe.throw(_("财务确认记录与订单不一致。"))
-	frappe.db.set_value("CRM Integration Log", name, {"status": status, "response_payload": frappe.as_json({"process_status": process_status})})
+	result = {"process_status": process_status}
+	if fulfillment_route in {"DIRECT", "MES"}:
+		result["fulfillment_route"] = fulfillment_route
+	frappe.db.set_value("CRM Integration Log", name, {"status": status, "response_payload": frappe.as_json(result)})
 
 
 def protect_process_status(doc, method=None):

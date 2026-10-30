@@ -181,6 +181,7 @@ class TestMESSalesOrderPayload(UnitTestCase):
 class TestSalesOrderPermissions(UnitTestCase):
 	def setUp(self):
 		super().setUp()
+		self.enterContext(patch("crm_integration.crm_integration.production_routing.get_company_direct_product_prefixes", return_value=frozenset({"NSF"})))
 		def scoped_read(name):
 			doc = frappe.get_doc("Sales Order", name)
 			doc.check_permission("read")
@@ -403,7 +404,7 @@ class TestSalesOrderPermissions(UnitTestCase):
 			patch(
 				"crm_integration.crm_integration.sales_order.push_sales_order_status_to_crm"
 			) as push_status,
-			patch("crm_integration.crm_integration.sales_order.push_sales_order_to_mes") as push_mes,
+			patch("crm_integration.crm_integration.sales_order.push_sales_order_to_mes", return_value={"success": True}) as push_mes,
 			patch("crm_integration.crm_integration.sales_order.set_process_status") as set_status,
 		):
 			operations.attach_mock(push_status, "push_status")
@@ -416,7 +417,7 @@ class TestSalesOrderPermissions(UnitTestCase):
 			[
 				call.push_status(doc, CRM_STATUS_CONFIRMED_DEPOSIT_PUSH_PRODUCTION),
 				call.push_status(doc, CRM_STATUS_IN_PRODUCTION),
-				call.push_mes(doc),
+				call.push_mes(doc, resolved_route="MES"),
 				call.set_status(doc, PENDING_PRODUCTION),
 			],
 		)

@@ -10,6 +10,7 @@ from crm_integration.crm_integration import sales_order as flow
 class TestFinanceRelease(UnitTestCase):
 	def setUp(self):
 		super().setUp()
+		self.enterContext(patch("crm_integration.crm_integration.production_routing.get_company_direct_product_prefixes", return_value=frozenset({"NSF"})))
 		self.doc = frappe._dict(doctype="Sales Order", name="SO-1", company="MX", customer="C-1", custom_crm_order_no="CRM-1", docstatus=1,
 			status="To Deliver and Bill", custom_process_status=release.PENDING)
 		self.enterContext(patch.object(release, "readable_fields", return_value={"company", "customer", "custom_process_status", "references", "party_type", "party", "payment_type", "posting_date", "paid_from_account_currency", "paid_to_account_currency", "reference_doctype", "reference_name", "allocated_amount"}))

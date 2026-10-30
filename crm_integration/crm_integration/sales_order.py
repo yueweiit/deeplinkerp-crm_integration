@@ -8,6 +8,10 @@ from frappe.utils import cint, flt, now
 from frappe.utils.data import get_datetime
 
 from crm_integration.crm_integration.integration_log import create_crm_log, update_crm_log
+from crm_integration.crm_integration.production_routing import (
+	DIRECT, MES, assert_order_route_schema, is_direct_fulfillment_order,
+	record_completed_route, validate_production_route,
+)
 from crm_integration.crm_integration.sales_order_identity import crm_sales_order_creation_lock, get_sales_order_names_by_crm_order_no
 from crm_integration.crm_integration.settings import (
 	is_crm_integration_enabled,
@@ -565,7 +569,12 @@ def validate_mes_sync_available(sales_order):
 	return services
 
 
-def push_sales_order_to_mes(sales_order):
+def push_sales_order_to_mes(sales_order, *, resolved_route=None):
+	route = validate_production_route(sales_order) if resolved_route is None else resolved_route
+	if route == DIRECT:
+		return {"status": "skipped", "reason": "NO_MES_PRODUCTION", "sales_order": sales_order.name}
+	if route != MES:
+		frappe.throw(_("Stored order fulfillment route conflicts with the completed release."))
 	services = validate_mes_sync_available(sales_order)
 
 	payload = None
@@ -898,10 +907,14 @@ def confirm_deposit_and_push_to_mes(sales_order_name):
 	review = review_order(sales_order)
 	if not review["can_release"]:
 		frappe.throw(review["reason"])
-	validate_mes_sync_available(sales_order)
+	route = validate_production_route(sales_order)
+	assert_order_route_schema()
+	if route != DIRECT:
+		validate_mes_sync_available(sales_order)
 	audit = create_crm_log(direction="Outbound", event=AUDIT_EVENT, status="Pending",
 		reference_doctype="Sales Order", reference_name=sales_order.name, source="Desk",
-		request_payload={"manual_confirmation": True, "receipts": review["receipts"], "receipts_complete": review["receipts_complete"]})
+		request_payload={"manual_confirmation": True, "receipts": review["receipts"], "receipts_complete": review["receipts_complete"],
+			"fulfillment_route": route, "mes_required": route != DIRECT})
 	if not audit:
 		frappe.throw(_("无法保存逐单确认记录，未执行放行。"))
 	set_process_status(sales_order, DEPOSIT_CONFIRMATION_PROCESSING)
@@ -909,9 +922,11 @@ def confirm_deposit_and_push_to_mes(sales_order_name):
 
 	return {
 		"status": "success",
-		"message": _("定金确认任务已提交，系统将在后台同步 CRM 和 MES。"),
+		"message": (_("财务确认任务已提交，系统将在后台同步 CRM 并跳过 MES 生产下发。") if route == DIRECT
+			else _("定金确认任务已提交，系统将在后台同步 CRM 和 MES。")),
 		"process_status": DEPOSIT_CONFIRMATION_PROCESSING,
 		"queued": True,
+		"fulfillment_route": route,
 		"timestamp": now(),
 	}
 
@@ -943,7 +958,7 @@ def confirm_deposit_and_push_to_mes_job(sales_order_name, audit_log=None):
 			result = run_confirm_deposit_sync(sales_order)
 		if audit_log:
 			from crm_integration.crm_integration.finance_release import update_finance_audit
-			update_finance_audit(audit_log, sales_order_name, "Success", result["process_status"])
+			update_finance_audit(audit_log, sales_order_name, "Success", result["process_status"], fulfillment_route=result.get("fulfillment_route"))
 		return result
 	except Exception:
 		error_message = frappe.get_traceback()
@@ -987,11 +1002,11 @@ def run_confirm_deposit_sync(sales_order):
 		frappe.throw(_("销售订单必须提交后才能确认定金。"))
 
 	process_status = sales_order.get("custom_process_status")
-	if process_status == PENDING_PRODUCTION:
+	if process_status == PENDING_PRODUCTION or (process_status == PENDING_FINAL_PAYMENT and is_direct_fulfillment_order(sales_order)):
 		return {
 			"status": "success",
 			"message": _("销售订单已经完成定金确认同步。"),
-			"process_status": PENDING_PRODUCTION,
+			"process_status": process_status,
 			"idempotent_replay": True,
 		}
 	if process_status not in {
@@ -1000,6 +1015,9 @@ def run_confirm_deposit_sync(sales_order):
 	}:
 		frappe.throw(_("只有待确认定金的销售订单可以推送至MES。"))
 
+	# Reject mixed orders before any external CRM or MES side effect.
+	route = validate_production_route(sales_order)
+	assert_order_route_schema()
 	push_sales_order_status_to_crm(sales_order, CRM_STATUS_CONFIRMED_DEPOSIT_PUSH_PRODUCTION)
 	if not cint(sales_order.get("custom_crm_production_started")):
 		# An E3 timeout may mean CRM accepted the event; persist the attempt first.
@@ -1013,13 +1031,23 @@ def run_confirm_deposit_sync(sales_order):
 		sales_order.custom_crm_production_started = 1
 		sales_order.custom_crm_production_milestone = "REACHED"
 		frappe.db.commit()
-	push_sales_order_to_mes(sales_order)
-	set_process_status(sales_order, PENDING_PRODUCTION)
+	if route == DIRECT:
+		process_status = PENDING_FINAL_PAYMENT
+		message = _("财务放行完成，无需 MES 生产，请核销尾款后放行发货。")
+	else:
+		response = push_sales_order_to_mes(sales_order, resolved_route=route)
+		if not isinstance(response, dict) or response.get("success") is not True:
+			frappe.throw(_("MES did not confirm order acceptance; financial release was not completed."))
+		process_status = PENDING_PRODUCTION
+		message = _("定金已确认，销售订单已推送至MES。")
+	record_completed_route(sales_order, route)
+	set_process_status(sales_order, process_status)
 
 	return {
 		"status": "success",
-		"message": _("定金已确认，销售订单已推送至MES。"),
-		"process_status": PENDING_PRODUCTION,
+		"message": message,
+		"process_status": process_status,
+		"fulfillment_route": route,
 		"timestamp": now(),
 	}
 

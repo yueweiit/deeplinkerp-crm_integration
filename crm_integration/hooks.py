@@ -156,14 +156,19 @@ after_migrate = "crm_integration.setup.after_migrate"
 # Hook on document methods and events
 
 doc_events = {
+	"Company": {"validate": "crm_integration.crm_integration.production_routing.validate_company_direct_products"},
 	"Work Order": {"validate": "crm_integration.crm_integration.finance_release.validate_production_sources"},
 	"Production Plan": {"validate": "crm_integration.crm_integration.finance_release.validate_production_sources"},
 	"Sales Order": {
 		"before_insert": "crm_integration.crm_integration.sales_order.prevent_duplicate_crm_order_no",
-		"validate": "crm_integration.crm_integration.finance_release.protect_process_status",
+		"validate": [
+			"crm_integration.crm_integration.finance_release.protect_process_status",
+			"crm_integration.crm_integration.production_routing.protect_recorded_production_route",
+		],
 		"before_update_after_submit": [
 			"crm_integration.crm_integration.finance_release.protect_process_status",
 			"crm_integration.crm_integration.sales_order.protect_crm_order_identity",
+			"crm_integration.crm_integration.production_routing.protect_recorded_production_route",
 		],
 		"after_insert": "crm_integration.crm_integration.integration_log.log_inbound_sales_order",
 		"before_submit": "crm_integration.crm_integration.sales_order.prevent_rejected_sales_order_submit",

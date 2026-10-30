@@ -360,3 +360,18 @@ MES 订单下发失败（{0}），请联系集成管理员核对日志。,"Faile
 MES 订单下发失败，请联系集成管理员核对日志。,"Failed to send the order to MES. Ask an integration administrator to check the log."
 原 ERP 单未通过 CRM 审批撤回或财务驳回取消，不能自动重新提交。,The original ERP order was not cancelled through CRM approval withdrawal or financial rejection and cannot be automatically resubmitted.
 原 ERP 销售订单不是该 CRM 号的最新单据，请重新查询后重提。,The original ERP Sales Order is not the latest document for this CRM order number. Query the order again before resubmitting.
+财务放行完成，无需 MES 生产，请核销尾款后放行发货。,Financial approval is complete; MES production is not required. Confirm the final payment before authorizing shipment.
+已完成财务放行（无需 MES 生产）,Financial approval complete (no MES production required)
+财务确认任务已提交，系统将在后台同步 CRM 并跳过 MES 生产下发。,Financial confirmation has been queued. CRM will be synchronized without sending a production order to MES.
+直接履约产品与其他产品不能在同一订单放行，请按产品拆分销售订单后重试。,Direct-fulfillment products cannot be released together with other products. Split the sales order by product and try again.
+该产品无需 MES 生产，仍需核销尾款后发货。,This product does not require MES production. Final payment must still be confirmed before shipment.
+Direct Fulfillment Product Prefixes,Direct Fulfillment Product Prefixes
+"One three-character product prefix per line, for example NSF. All models and colors of that product follow the whole order. Empty means no direct products. Only System Managers can change this list.","One three-character product prefix per line, for example NSF. All models and colors of that product follow the whole order. Empty means no direct products. Only System Managers can change this list."
+Only System Managers can change direct-fulfillment product rules.,Only System Managers can change direct-fulfillment product rules.
+"Enter one three-character alphanumeric product prefix per line (for example, NSF). Wildcards are not allowed.","Enter one three-character alphanumeric product prefix per line (for example, NSF). Wildcards are not allowed."
+CRM Fulfillment Route,CRM Fulfillment Route
+Historical order fulfillment route is unknown. Verify its original MES handling before retrying.,Historical order fulfillment route is unknown. Verify its original MES handling before retrying.
+Order fulfillment route schema is outdated. Please migrate the site before financial release.,Order fulfillment route schema is outdated. Please migrate the site before financial release.
+Stored order fulfillment route conflicts with the completed release.,Stored order fulfillment route conflicts with the completed release.
+Order fulfillment route can only be recorded by the financial release workflow.,Order fulfillment route can only be recorded by the financial release workflow.
+MES did not confirm order acceptance; financial release was not completed.,MES did not confirm order acceptance; financial release was not completed.

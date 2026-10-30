@@ -483,3 +483,18 @@ MES 订单下发失败（{0}），请联系集成管理员核对日志。,"No se
 MES 订单下发失败，请联系集成管理员核对日志。,"No se pudo enviar el pedido a MES. Solicite al administrador de integración que revise el registro."
 原 ERP 单未通过 CRM 审批撤回或财务驳回取消，不能自动重新提交。,El pedido ERP original no se canceló mediante la retirada de aprobación del CRM ni por rechazo financiero y no puede volver a enviarse automáticamente.
 原 ERP 销售订单不是该 CRM 号的最新单据，请重新查询后重提。,El pedido de venta ERP original no es el documento más reciente para este número de pedido CRM. Consulte el pedido de nuevo antes de volver a enviarlo.
+财务放行完成，无需 MES 生产，请核销尾款后放行发货。,La aprobación financiera se completó; no se requiere producción en MES. Confirme el pago final antes de autorizar el envío.
+已完成财务放行（无需 MES 生产）,Aprobación financiera completada (sin producción en MES)
+财务确认任务已提交，系统将在后台同步 CRM 并跳过 MES 生产下发。,La confirmación financiera se ha puesto en cola. Se sincronizará CRM sin enviar una orden de producción a MES.
+直接履约产品与其他产品不能在同一订单放行，请按产品拆分销售订单后重试。,Los productos de entrega directa no se pueden autorizar junto con otros productos. Separe el pedido de venta por producto e inténtelo de nuevo.
+该产品无需 MES 生产，仍需核销尾款后发货。,Este producto no requiere producción en MES. El pago final debe confirmarse antes del envío.
+Direct Fulfillment Product Prefixes,Prefijos de productos sin producción en MES
+"One three-character product prefix per line, for example NSF. All models and colors of that product follow the whole order. Empty means no direct products. Only System Managers can change this list.","Introduzca un prefijo de tres caracteres por línea, por ejemplo NSF. Todos los modelos y colores del producto siguen el pedido completo. Una lista vacía desactiva la entrega directa. Solo los administradores del sistema pueden modificarla."
+Only System Managers can change direct-fulfillment product rules.,Solo los administradores del sistema pueden modificar las reglas de productos sin producción en MES.
+"Enter one three-character alphanumeric product prefix per line (for example, NSF). Wildcards are not allowed.","Introduzca un prefijo de producto de tres caracteres alfanuméricos por línea (por ejemplo, NSF). No se permiten comodines."
+CRM Fulfillment Route,Ruta de cumplimiento de CRM
+Historical order fulfillment route is unknown. Verify its original MES handling before retrying.,La ruta de cumplimiento del pedido anterior es desconocida. Verifique su tratamiento original en MES antes de reintentar.
+Order fulfillment route schema is outdated. Please migrate the site before financial release.,El campo de la ruta de cumplimiento no está actualizado. Migre el sitio antes de autorizar financieramente.
+Stored order fulfillment route conflicts with the completed release.,La ruta de cumplimiento guardada no coincide con el resultado de la autorización. Revísela antes de continuar.
+Order fulfillment route can only be recorded by the financial release workflow.,La ruta de cumplimiento solo puede registrarse mediante el proceso de autorización financiera; no puede modificarse directamente.
+MES did not confirm order acceptance; financial release was not completed.,MES no confirmó la recepción del pedido; la autorización financiera no se completó.

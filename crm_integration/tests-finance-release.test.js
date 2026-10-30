@@ -57,3 +57,16 @@ test("release operator without log read permission sees failure and can retry",(
  finance.reconcileResults(inFlight,[stillProcessing]);
  assert.equal(inFlight[0].state,"processing");
 });
+
+test("direct product release shows financial approval and preserves final payment guidance",()=>{
+ const row={name:"NSF-SO",fulfillment_route:"DIRECT",process_status:"Pending Final Payment"};
+ assert.equal(finance.stateLabel(row),"已完成财务放行（无需 MES 生产）");
+ assert.match(finance.rowsHTML([row]),/仍需核销尾款后发货/);
+ assert.match(finance.stateLabel({...row,fulfillment_route:undefined}),/已完成生产放行同步/);
+});
+
+test("unknown historical route is shown as requiring verification instead of successful release",()=>{
+ const row={name:"OLD-SO",fulfillment_route:"UNKNOWN",process_status:"Pending Final Payment"};
+ assert.match(finance.stateLabel(row),/Historical order fulfillment route is unknown/);
+ assert.ok(!finance.stateLabel(row).includes("已完成"));
+});
