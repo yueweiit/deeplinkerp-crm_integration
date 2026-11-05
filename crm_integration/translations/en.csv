@@ -375,3 +375,18 @@ Order fulfillment route schema is outdated. Please migrate the site before finan
 Stored order fulfillment route conflicts with the completed release.,Stored order fulfillment route conflicts with the completed release.
 Order fulfillment route can only be recorded by the financial release workflow.,Order fulfillment route can only be recorded by the financial release workflow.
 MES did not confirm order acceptance; financial release was not completed.,MES did not confirm order acceptance; financial release was not completed.
+Product Source,Product Source
+SELF_DEVELOPED,Self-developed
+EXTERNAL_PURCHASE,Trade product
+items 必须是销售订单明细对象数组。,items must be an array of Sales Order item objects.
+custom_product_source 只能是 SELF_DEVELOPED、EXTERNAL_PURCHASE 或空值。,custom_product_source must be SELF_DEVELOPED or EXTERNAL_PURCHASE or blank.
+订单头产品来源必须与全部明细来源一致且均已明确。,The order source must match every item and all item sources must be specified.
+贸易款明细必须对应明确的贸易款订单头，不能按空来源下发 MES。,Trade items require an explicit trade source on the order and cannot be sent to MES as an unspecified source.
+产品来源字段尚未同步，请先迁移 ERP 站点。,The product source fields have not been synchronized. Migrate the ERP site first.
+订单产品来源不一致，请核对订单头和明细后重试。,Product sources differ between the order and its items. Check them and retry.
+已有 CRM 订单的产品来源与重试请求不同，不能通过 C1 改写订单快照。,The existing CRM order has a different product source. A C1 retry cannot change its snapshot.
+无法核对 C1 重试的明细来源与已有订单行，请查询现有订单。,The item sources in the C1 retry cannot be matched to the existing order. Query the existing order.
+已有 CRM 订单的明细产品来源与重试请求不同，不能通过 C1 改写订单快照。,An existing CRM order item has a different product source. A C1 retry cannot change its snapshot.
+CRM manifest 第 {0} 行 productSource 无效。,Invalid productSource in CRM manifest row {0}.
+现有 ERP 明细 {0} 虽已绑定 CRM 行，但编码、版本、数量、价格、单位或产品来源已冲突，禁止追加替代行。,Existing ERP item {0} is bound to a CRM row but its code or product source conflicts with the manifest. A replacement row cannot be added.
+补全后的订单产品来源不一致，请提供与订单头一致的 productSource。,The completed order would have inconsistent product sources. Supply a productSource matching the order header.

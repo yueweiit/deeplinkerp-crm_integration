@@ -1,4 +1,4 @@
-"""NSF release regressions use mocked external calls and no business-data writes."""
+"""Product-source release regressions use mocked external calls and no business-data writes."""
 
 from unittest.mock import MagicMock, call, patch
 
@@ -14,14 +14,19 @@ def order(*codes, status=flow.DEPOSIT_CONFIRMATION_PROCESSING):
 	doc = MagicMock()
 	doc.name, doc.company, doc.docstatus = "NSF-TEST-SO", "TEST COMPANY", 1
 	doc.modified = "2026-10-30 12:00:00"
+	items = [frappe._dict(item_code=code, qty=10,
+		custom_product_source=(routing.EXTERNAL_PURCHASE if isinstance(code, str) and code.strip().upper().startswith("NSF")
+			else routing.SELF_DEVELOPED if code else None)) for code in codes]
+	sources = {row.custom_product_source for row in items}
+	header_source = sources.pop() if len(sources) == 1 else None
 	values = frappe._dict(company=doc.company, custom_crm_order_no="NSF-TEST-CRM", custom_process_status=status,
-		custom_crm_production_started=0, status="To Deliver and Bill",
-		items=[frappe._dict(item_code=code, qty=10) for code in codes])
+		custom_crm_production_started=0, status="To Deliver and Bill", custom_product_source=header_source,
+		items=items)
 	doc.get.side_effect = values.get
 	return doc
 
 
-class TestNSFProductionRouting(UnitTestCase):
+class TestProductSourceRouting(UnitTestCase):
 	def setUp(self):
 		super().setUp()
 		self.enterContext(patch.object(routing, "get_company_direct_product_prefixes", return_value=frozenset({"NSF"})))
@@ -40,6 +45,21 @@ class TestNSFProductionRouting(UnitTestCase):
 		for qty in (0, -1, None, "invalid"):
 			with self.subTest(qty=qty):
 				self.assertFalse(routing.is_direct_fulfillment_order(frappe._dict(items=[frappe._dict(item_code="NSF4030112104", qty=qty)])))
+
+	def test_product_source_overrides_legacy_item_prefix_and_blank_uses_mes(self):
+		for code, source, expected in (("NSF4030112104", None, routing.MES),
+			("NSF4030112104", routing.SELF_DEVELOPED, routing.MES),
+			("NBD4030000101", routing.EXTERNAL_PURCHASE, routing.DIRECT)):
+			with self.subTest(code=code, source=source):
+				doc = frappe._dict(company="MX", custom_product_source=source,
+					items=[frappe._dict(item_code=code, qty=1, custom_product_source=source)])
+				self.assertEqual(routing.get_production_route(doc), expected)
+		for header, item in ((None, routing.EXTERNAL_PURCHASE),
+			(routing.EXTERNAL_PURCHASE, None), (routing.SELF_DEVELOPED, routing.EXTERNAL_PURCHASE)):
+			with self.subTest(header=header, item=item):
+				doc = frappe._dict(custom_product_source=header,
+					items=[frappe._dict(item_code="NBD4030000101", qty=1, custom_product_source=item)])
+				self.assertEqual(routing.get_production_route(doc), routing.MIXED)
 
 	def test_direct_release_keeps_crm_events_and_production_lock_but_waits_for_final_payment(self):
 		doc = order("NSF4030112104", "NSF4030117104")
@@ -198,12 +218,12 @@ class TestDirectProductConfiguration(UnitTestCase):
 			self.assertEqual(routing.get_company_direct_product_prefixes("MX"), frozenset({"NSF"}))
 		query.assert_not_called()
 
-	def test_new_product_is_configured_once_for_all_models_and_colors(self):
+	def test_legacy_product_prefixes_no_longer_change_unreleased_order_routing(self):
 		doc = frappe._dict(company="MX", items=[frappe._dict(item_code="ABC4030000101", qty=2, color="Red"), frappe._dict(item_code="ABC4030099902", qty=3, color="Blue")])
 		with patch.object(routing, "get_company_direct_product_prefixes", return_value=frozenset({"NSF", "ABC"})):
-			self.assertEqual(routing.get_production_route(doc), routing.DIRECT)
+			self.assertEqual(routing.get_production_route(doc), routing.MES)
 			doc["items"].append(frappe._dict(item_code="NSF4030112104", qty=2))
-			self.assertEqual(routing.get_production_route(doc), routing.MIXED)
+			self.assertEqual(routing.get_production_route(doc), routing.MES)
 		with patch.object(routing, "get_company_direct_product_prefixes", return_value=frozenset({"NSF"})):
 			self.assertEqual(routing.get_production_route(frappe._dict(company="MX", items=doc["items"][:2])), routing.MES)
 
@@ -281,6 +301,9 @@ class TestDirectProductConfiguration(UnitTestCase):
 class TestDurableProductionRoute(UnitTestCase):
 	def test_rule_change_during_crm_sync_does_not_skip_required_mes_submission(self):
 		doc = order("NSF4030112104")
+		doc.get.side_effect = lambda field, original=doc.get.side_effect: (
+			routing.SELF_DEVELOPED if field == "custom_product_source" else original(field))
+		doc.get.side_effect("items")[0].custom_product_source = routing.SELF_DEVELOPED
 		services = frappe._dict(create_log=MagicMock(), update_log=MagicMock())
 		with (
 			patch.object(routing, "get_company_direct_product_prefixes", side_effect=[frozenset(), frozenset({"NSF"})]) as config,
@@ -295,7 +318,7 @@ class TestDurableProductionRoute(UnitTestCase):
 			patch.object(flow, "set_process_status") as status,
 		):
 			result = flow.run_confirm_deposit_sync(doc)
-		config.assert_called_once()
+		config.assert_not_called()
 		post.assert_called_once()
 		self.assertEqual(result["fulfillment_route"], routing.MES)
 		status.assert_called_once_with(doc, flow.PENDING_PRODUCTION)
@@ -305,7 +328,7 @@ class TestDurableProductionRoute(UnitTestCase):
 		doc = order("NSF4030112104")
 		with patch.object(routing, "get_company_direct_product_prefixes", side_effect=[frozenset({"NSF"}), frozenset()]) as config, patch.object(flow, "push_sales_order_status_to_crm"), patch.object(flow, "push_sales_order_to_mes") as mes, patch.object(frappe.db, "commit"), patch.object(flow, "set_process_status") as status:
 			flow.run_confirm_deposit_sync(doc)
-		config.assert_called_once()
+		config.assert_not_called()
 		mes.assert_not_called()
 		status.assert_called_once_with(doc, flow.PENDING_FINAL_PAYMENT)
 		self.assertEqual(doc.db_set.call_args.args, (routing.ORDER_ROUTE_FIELD, routing.DIRECT))

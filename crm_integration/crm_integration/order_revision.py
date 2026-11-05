@@ -18,6 +18,7 @@ from crm_integration.crm_integration.sales_order import (
 	REJECTED,
 )
 from crm_integration.crm_integration.sales_order_identity import crm_sales_order_creation_lock
+from crm_integration.crm_integration.production_routing import MIXED, get_production_route
 from crm_integration.crm_integration.settings import is_crm_integration_enabled, throw_crm_integration_disabled
 
 
@@ -29,18 +30,21 @@ HEADER_FIELDS = {
 	"contact_display", "contact_mobile", "contact_email", "customer_address",
 	"address_display", "payment_terms_template", "tc_name", "terms", "currency", "conversion_rate",
 	"sales_team",
+	"custom_product_source",
 }
 ITEM_FIELDS = {
 	"qty", "rate", "custom_version", "custom_product", "custom_specifications",
 	"description", "warehouse", "delivery_date", "uom", "conversion_factor",
 	"discount_percentage", "discount_amount", "item_tax_template", "custom_item_tax_amount",
 	"custom_mes_route_scenario",
+	"custom_product_source",
 }
 STRUCTURAL_ITEM_FIELDS = {
 	"qty", "item_code", "custom_version", "warehouse", "uom", "conversion_factor",
 	"custom_mes_route_scenario",
+	"custom_product_source",
 }
-STOCK_STRUCTURAL_ITEM_FIELDS = STRUCTURAL_ITEM_FIELDS - {"custom_mes_route_scenario"}
+STOCK_STRUCTURAL_ITEM_FIELDS = STRUCTURAL_ITEM_FIELDS - {"custom_mes_route_scenario", "custom_product_source"}
 
 
 class CRMOrderConflict(frappe.ValidationError):
@@ -539,6 +543,8 @@ def validate_financial_revision(doc, header, taxes, facts):
 
 
 def execute_update(payload):
+	from crm_integration.crm_integration.api import validate_product_source_payload
+
 	lock_expected_order(payload)
 	doc, rows = current_order(payload["crmOrderNo"], payload["erpOrderId"], payload["crmOrderId"])
 	check_version(doc, payload)
@@ -551,6 +557,11 @@ def execute_update(payload):
 		frappe.throw(_("header 必须是对象。"))
 	if set(header) - HEADER_FIELDS:
 		frappe.throw(_("header 含有不支持的字段：{0}。").format(", ".join(sorted(set(header) - HEADER_FIELDS))))
+	source_in_request = "custom_product_source" in header or any("custom_product_source" in row
+		for row in (payload.get("items") or []) if isinstance(row, dict))
+	if source_in_request:
+		if not all(frappe.db.has_column(doctype, "custom_product_source") for doctype in ("Sales Order", "Sales Order Item")):
+			frappe.throw(_("产品来源字段尚未同步，请先迁移 ERP 站点。"))
 	header = dict(header)
 	for field in ("delivery_date", "po_date"):
 		if field in header:
@@ -582,12 +593,25 @@ def execute_update(payload):
 	old_currency = doc.currency
 	old_conversion_rate = flt(doc.conversion_rate)
 	old_payment_template = doc.payment_terms_template
+	old_product_source = doc.get("custom_product_source")
 	for field, value in header.items():
 		doc.set(field, value)
 	if taxes is not None:
 		doc.set("taxes_and_charges", None)
 		doc.set("taxes", taxes)
 	structural, stock_structural = apply_items(doc, payload["items"], facts) if payload.get("items") is not None else (False, False)
+	if "custom_product_source" in header and (header["custom_product_source"] or "") != (old_product_source or ""):
+		structural = True
+		if (doc.custom_process_status not in EARLY_STATUSES or facts["workOrders"]
+			or facts["productionPlans"] or facts["stockEntries"] or facts["stockReservations"]
+			or (facts.get("mesPush") or {}).get("lastPushStatus")):
+			raise CRMOrderConflict(_("STRUCTURAL_CHANGE_BLOCKED: 已推送 MES 或已有生产/库存预留关联，不能更改订单结构。"))
+	current_source = doc.get("custom_product_source")
+	if (source_in_request or (isinstance(current_source, str) and current_source)
+		or any(isinstance(row.get("custom_product_source"), str) and row.get("custom_product_source")
+			for row in doc.items)) and get_production_route(doc) == MIXED:
+		validate_product_source_payload({"custom_product_source": doc.get("custom_product_source"),
+			"items": [{"custom_product_source": row.get("custom_product_source")} for row in doc.items]})
 	sync_header_delivery_date(doc, header, payload.get("items"), old_delivery_date)
 	if "set_warehouse" in header:
 		for row in doc.items:

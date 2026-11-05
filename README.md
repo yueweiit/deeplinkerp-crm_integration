@@ -52,17 +52,15 @@ CRM 集成日志的 `http_status_code=0` 表示没有可用的 HTTP 状态码；
 
 日志不保存鉴权请求头、备注及附件；请求仅保留系统来源、ERP/CRM 单号、审批轮次、状态和 traceId。URL 移除用户信息、查询参数和片段；失败响应和异常说明对凭据字段、已知密钥及常见鉴权文本做脱敏，带空格、转义字符或未闭合引号的凭据值整体遮盖；输出限制深度、节点和文本长度。大响应优先保留 errorCode/code、traceId、message 等诊断摘要，先固定字段名再处理值，被截断的 data/errors 保留字段名并显示截断标记。无 HTTP 响应时状态码记 `0`，保留异常类型。成功请求、状态恢复、收款和财务权限规则不变。此修复复用现有日志字段，无新增数据库结构；定位测试见 `test_status_push_failure.py`，生产仍需发布新代码并重启相关进程。
 
-### 按产品配置直接履约
+### CRM 产品来源与 MES 路由
 
-管理员打开 **公司 → 对应公司 → 无需 MES 生产的产品编码前缀**，每行填写一个产品的三位编码，例如默认的 `NSF`（钢化膜）。以后增加免生产产品只需在名单中增加该产品编码，无需修改 Python、逐个型号建规则或重新构建镜像。该公司下同一产品的不同型号、颜色等明细全部随整张订单放行；识别取物料编码前三位，不取第一个型号决定其他产品。名单按公司隔离，清空表示该公司无免生产产品。支持换行、逗号或分号分隔并自动统一大写、去重，拒绝不足/超过三位及通配符；仅 System Manager / Administrator 可修改，Company 普通编辑权限不会获得该规则的修改权，服务端 Company validate hook 同时校验。
+C1 `create_and_submit_sales_order` 与 R4 `resubmit_crm_sales_order` 可在 Sales Order 订单头和 Sales Order Item 明细接收 `custom_product_source`。取值为 `SELF_DEVELOPED`（自研款）、`EXTERNAL_PURCHASE`（贸易款）或空值；字段不必填、无默认值，不按物料编码或主数据补值。订单头填值时，所有明细必须有相同明确来源；明细出现贸易款而订单头为空也拒绝建单，防止误下发 MES。CRM 保证一单不混用自研与贸易。C1 幂等重试核对显式传入的明细来源，无法唯一匹配或来源冲突时拒绝返回成功。
 
-订单必须有明细、每行数量为正且全部属于同一个名单产品，才属于 `DIRECT`。空单、无效行及未配置产品不享受免生产例外。正常业务为一个产品一单，多型号无需拆单；若异常混入其他产品，财务放行前提示按产品拆单，不整单绕过 MES、不部分下发。
+R2 可在 `header.custom_product_source` 与 `items[].custom_product_source` 中修订来源；补行时应明确传入新行来源。C2 `complete_missing_items` 的完整 manifest 可用 `productSource` 传逐行来源，现有行传值时必须与 ERP 保存值一致。R2/C2 在写入前复核整单来源，贸易款头不能带空来源新行；来源变更仍受推送 MES 前的结构修订限制。旧来源为空的请求继续保持为空。
 
-直接履约仍须人工财务确认，沿用公司 CRM 开关、订单权限、生产放行权限、收款关联核验、逐单审计和提交后队列。为兼容现有 CRM 消费流程，继续按 E2、E3 回传并保留 E3 幂等及持久修订锁，但不检查 MES 下发配置、不调用 MES 收单；成功后进入 `Pending Final Payment`，不自动核销尾款或改成 `Deliverable`。尾款/库存/发货校验及 C6 既有严格/旧格式契约继续适用。未完成的失败订单可以按公司当前名单对原单重新确认，不清除原 E3 事实，也不自动批量修复历史单。普通生产订单继续走 CRM/MES 编排，成功后进入 `Pending Production`。
+只有订单头明确为 `EXTERNAL_PURCHASE` 且明细均为贸易款时，整单走 `DIRECT` 并跳过 MES；自研款及空来源走 `MES`。旧 Company `custom_direct_fulfillment_product_prefixes` 保留历史数据但隐藏、不再决定未放行订单路径。因此来源为空的未放行旧 NSF 订单也会走 MES，发布前须核对这些订单。已放行订单优先读取已保存的 `custom_crm_fulfillment_route`、既有成功审计和 MES 记录，不因本次规则更新重新判定，也不批量填充历史来源。
 
-`production_routing.py` 是共享策略来源。worker 在外部同步前只解析一次路径，并将该路径明确传给 MES 下发函数；下层不再读取公司名单，且只有 MES 返回 `success=true` 才能完成制造订单的放行。成功路径写入 Sales Order.`custom_crm_fulfillment_route`（隐藏、只读、允许提交后由内部流程更新、不复制到新修订单），与最终流程状态在同一事务内保存；日常表单/REST 写入由服务端拒绝。公司名单变化或清理日志不会改变这份业务快照。审计继续保存预核验及实际结果，既有审计、MES 成功记录仅作为旧单迁移的证据。
-
-必须配套更新 `mes_integration` 的销售订单及出库回调：按相同策略跳过直接履约订单的 MES HTTP 请求和投递日志，返回内部 `status=skipped, reason=NO_MES_PRODUCTION`。多订单出库仍逐单回调其他需生产订单。Company 的 `custom_direct_fulfillment_product_prefixes` 和 Sales Order 的 `custom_crm_fulfillment_route` 由 `crm_integration.setup.sync_custom_fields` 安装/迁移同步；未同步订单字段时，财务确认在外部同步前拒绝继续。首次新增公司列时初始化空值为 NSF，后续迁移保留名单。历史订单按每批 200 单使用成功财务审计、MES 成功记录补存路径；旧 `Pending Production` 状态能确认 MES 路径，其他已完成/已取消且证据不足的旧单保存 `UNKNOWN`，不使用当前名单猜测。已有快照不会被重写，未放行订单仍按当前名单审批。核验接口保留原字段并可返回 `fulfillment_route=DIRECT/MES/MIXED/UNKNOWN`；UNKNOWN 阻止新放行或 MES HTTP 回调，由管理员核对原业务记录后定向修复。开发站点可定向执行 `crm_integration.patches.add_direct_fulfillment_products.execute`；生产按授权发布流程迁移、重启相关进程并刷新前端与翻译缓存。回归入口为 `test_production_routing.py`、`test_sales_order.py`、`test_finance_release.py` 和 `crm_integration/tests-finance-release.test.js`。
+直接履约仍须人工财务确认，继续按 E2/E3 回传 CRM 并保留审计及修订锁；跳过 MES 配置检查、B1 下发和后续 MES 回调，成功后进入 `Pending Final Payment`。MES 路径只有 MES 明确返回 `success=true` 才能进入 `Pending Production`。`production_routing.py` 为财务放行和 `mes_integration.settings.requires_sales_order_mes_sync` 的共享策略；worker 在外部同步前确定路径，完成后将实际 `DIRECT`/`MES` 写入订单路径快照。未知历史路径保持 `UNKNOWN` 并阻止 MES HTTP，需人工核对。生产发布须配套迁移新字段及重启相关进程；本地回归入口为 `test_api.py`、`test_production_routing.py` 和 `mes_integration/test_direct_fulfillment.py`。
 
 ### Contributing
 

@@ -164,3 +164,18 @@ Order fulfillment route schema is outdated. Please migrate the site before finan
 Stored order fulfillment route conflicts with the completed release.,订单已保存的履约路径与本次放行结果冲突，请先核对。
 Order fulfillment route can only be recorded by the financial release workflow.,订单履约路径只能由财务放行流程记录，不能直接修改。
 MES did not confirm order acceptance; financial release was not completed.,MES 未确认接收订单，财务放行未完成。
+Product Source,产品来源
+SELF_DEVELOPED,自研款
+EXTERNAL_PURCHASE,贸易款
+items 必须是销售订单明细对象数组。,items 必须是销售订单明细对象数组。
+custom_product_source 只能是 SELF_DEVELOPED、EXTERNAL_PURCHASE 或空值。,custom_product_source 只能是 SELF_DEVELOPED、EXTERNAL_PURCHASE 或空值。
+订单头产品来源必须与全部明细来源一致且均已明确。,订单头产品来源必须与全部明细来源一致且均已明确。
+贸易款明细必须对应明确的贸易款订单头，不能按空来源下发 MES。,贸易款明细必须对应明确的贸易款订单头，不能按空来源下发 MES。
+产品来源字段尚未同步，请先迁移 ERP 站点。,产品来源字段尚未同步，请先迁移 ERP 站点。
+订单产品来源不一致，请核对订单头和明细后重试。,订单产品来源不一致，请核对订单头和明细后重试。
+已有 CRM 订单的产品来源与重试请求不同，不能通过 C1 改写订单快照。,已有 CRM 订单的产品来源与重试请求不同，不能通过 C1 改写订单快照。
+无法核对 C1 重试的明细来源与已有订单行，请查询现有订单。,无法核对 C1 重试的明细来源与已有订单行，请查询现有订单。
+已有 CRM 订单的明细产品来源与重试请求不同，不能通过 C1 改写订单快照。,已有 CRM 订单的明细产品来源与重试请求不同，不能通过 C1 改写订单快照。
+CRM manifest 第 {0} 行 productSource 无效。,CRM manifest 第 {0} 行 productSource 无效。
+现有 ERP 明细 {0} 虽已绑定 CRM 行，但编码、版本、数量、价格、单位或产品来源已冲突，禁止追加替代行。,现有 ERP 明细 {0} 虽已绑定 CRM 行，但编码、版本、数量、价格、单位或产品来源已冲突，禁止追加替代行。
+补全后的订单产品来源不一致，请提供与订单头一致的 productSource。,补全后的订单产品来源不一致，请提供与订单头一致的 productSource。

@@ -257,6 +257,72 @@ class TestCRMOrderRevision(UnitTestCase):
 			self.assertEqual(apply_items(doc, [{**change, "rate": 0}], facts), (True, True))
 		doc.append.assert_called_once()
 
+	def test_r2_add_and_update_preserve_explicit_item_source(self):
+		order = frappe.get_doc({"doctype": "Sales Order", "custom_process_status": "Pending Deposit Confirmation",
+			"items": [{"item_code": "ITEM-1", "custom_crm_order_item_id": "LINE-1",
+				"custom_product_source": "EXTERNAL_PURCHASE"}]})
+		order.name = "SO-001"
+		facts = {"workOrders": [], "productionPlans": [], "stockEntries": [], "stockReservations": []}
+		with patch("erpnext.controllers.accounts_controller.set_order_defaults",
+			return_value=frappe._dict(item_code="ITEM-2", delivery_date="2026-10-21")):
+			self.assertEqual(apply_items(order, [{"action": "ADD", "crmOrderItemId": "LINE-2",
+				"item_code": "ITEM-2", "qty": 1, "rate": 0,
+				"custom_product_source": "EXTERNAL_PURCHASE"}], facts), (True, True))
+		self.assertEqual(order.items[-1].custom_product_source, "EXTERNAL_PURCHASE")
+		self.assertEqual(apply_items(order, [{"action": "UPDATE", "crmOrderItemId": "LINE-2",
+			"custom_product_source": "SELF_DEVELOPED"}], facts), (True, False))
+		self.assertEqual(order.items[-1].custom_product_source, "SELF_DEVELOPED")
+
+	def test_r2_rejects_source_mismatch_before_saving_trade_order(self):
+		row = frappe._dict(name="ROW-1", item_code="ITEM-1", qty=1,
+			custom_product_source="EXTERNAL_PURCHASE", custom_crm_order_item_id="LINE-1")
+		doc = MagicMock(name="SO-001", items=[row], custom_crm_revision=1,
+			custom_product_source="EXTERNAL_PURCHASE", custom_process_status="Pending Deposit Confirmation",
+			flags=frappe._dict())
+		doc.get.side_effect = lambda field: getattr(doc, field, None)
+		payload = {"crmOrderNo": "CRM-001", "erpOrderId": "SO-001", "crmOrderId": "CRM-ID",
+			"expectedCrmRevision": 1, "targetCrmRevision": 2, "crmApprovalRound": 1,
+			"items": [{"action": "ADD", "crmOrderItemId": "LINE-2", "item_code": "ITEM-2",
+				"qty": 1, "rate": 0}]}
+		facts = {"purchaseOrders": [], "workOrders": [], "productionPlans": [],
+			"stockEntries": [], "stockReservations": [], "advancePaid": 0,
+			"paymentEntries": [], "salesInvoices": [], "mesPush": {}}
+		def append_missing_row(_doc, _changes, _facts):
+			_doc.items.append(frappe._dict(name="ROW-2", item_code="ITEM-2", qty=1))
+			return True, True
+		with (patch("crm_integration.crm_integration.order_revision.lock_expected_order"),
+			patch("crm_integration.crm_integration.order_revision.current_order", return_value=(doc, [])),
+			patch("crm_integration.crm_integration.order_revision.check_version"),
+			patch("crm_integration.crm_integration.order_revision.linked_facts", return_value=facts),
+			patch("crm_integration.crm_integration.order_revision.assert_editable"),
+			patch("crm_integration.crm_integration.order_revision.apply_items", side_effect=append_missing_row)):
+			with self.assertRaisesRegex(frappe.ValidationError, "订单头产品来源"):
+				execute_update(payload)
+			doc.save.assert_not_called()
+
+	def test_r2_blocks_header_source_change_after_production_started(self):
+		doc = MagicMock(items=[frappe._dict(item_code="ITEM-1", qty=1,
+			custom_product_source="SELF_DEVELOPED")], custom_crm_revision=1,
+			custom_product_source="SELF_DEVELOPED", custom_process_status="Pending Production",
+			flags=frappe._dict())
+		doc.get.side_effect = lambda field: getattr(doc, field, None)
+		doc.set.side_effect = lambda field, value: setattr(doc, field, value)
+		payload = {"crmOrderNo": "CRM-001", "erpOrderId": "SO-001", "crmOrderId": "CRM-ID",
+			"expectedCrmRevision": 1, "targetCrmRevision": 2, "crmApprovalRound": 1,
+			"header": {"custom_product_source": "EXTERNAL_PURCHASE"}}
+		facts = {"purchaseOrders": [], "workOrders": [], "productionPlans": [],
+			"stockEntries": [], "stockReservations": [], "advancePaid": 0,
+			"paymentEntries": [], "salesInvoices": [], "mesPush": {"lastPushStatus": "Success"}}
+		with (patch("crm_integration.crm_integration.order_revision.lock_expected_order"),
+			patch("crm_integration.crm_integration.order_revision.current_order", return_value=(doc, [])),
+			patch("crm_integration.crm_integration.order_revision.check_version"),
+			patch("crm_integration.crm_integration.order_revision.linked_facts", return_value=facts),
+			patch("crm_integration.crm_integration.order_revision.assert_editable"),
+			patch.object(frappe.db, "has_column", return_value=True)):
+			with self.assertRaisesRegex(CRMOrderConflict, "STRUCTURAL_CHANGE_BLOCKED"):
+				execute_update(payload)
+			doc.save.assert_not_called()
+
 	def test_add_and_update_item_dates_pass_erp_delivery_date_validation(self):
 		order = frappe.get_doc({
 			"doctype": "Sales Order", "order_type": "Sales", "skip_delivery_note": 0,
@@ -578,6 +644,7 @@ class TestCRMOrderRevision(UnitTestCase):
 	def test_financial_revision_applies_currency_and_replaces_actual_taxes(self):
 		doc = MagicMock(name="SO-001", company="Company", currency="USD",
 			conversion_rate=1, custom_crm_revision=1,
+			custom_product_source=None,
 			custom_process_status="Pending Deposit Confirmation", flags=frappe._dict(), items=[])
 		doc.get.side_effect = lambda field: getattr(doc, field, None)
 		doc.grand_total = 110
@@ -703,21 +770,24 @@ class TestCRMOrderRevision(UnitTestCase):
 		payload = {**self.make_revoke_payload(), "operationType": "ORDER_RESUBMIT",
 			"erpOrderId": "SO-OLD", "crmApprovalRound": 2, "targetCrmRevision": 3,
 			"salesOrder": {"customer": "Customer", "company": "Company",
-				"custom_crm_order_no": "CRM-001", "items": [
-					{"item_code": "ITEM-1", "qty": 1, "custom_crm_order_item_id": "LINE-1"}]}}
+				"custom_crm_order_no": "CRM-001", "custom_product_source": "EXTERNAL_PURCHASE", "items": [
+					{"item_code": "ITEM-1", "qty": 1, "custom_crm_order_item_id": "LINE-1",
+					 "custom_product_source": "EXTERNAL_PURCHASE"}]}}
 		with (
 			patch("crm_integration.crm_integration.order_revision.lock_expected_order"),
 			patch("crm_integration.crm_integration.order_revision.current_order", return_value=(None,
 				[frappe._dict(name="SO-OLD", docstatus=2)])),
 			patch("crm_integration.crm_integration.order_revision.is_crm_integration_enabled", return_value=True),
 			patch.object(frappe.db, "exists", return_value=True),
+			patch.object(frappe.db, "has_column", return_value=True),
 			patch.object(frappe, "get_doc", side_effect=[old_doc, new_doc]),
-			patch("crm_integration.crm_integration.api.validate_sales_order_payload"),
 			patch("crm_integration.crm_integration.api.create_sales_order", return_value={"name": "SO-NEW"}) as create,
 		):
 			result = execute_resubmit(payload)
 		self.assertEqual(result["effectiveErpOrderId"], "SO-NEW")
 		self.assertEqual(create.call_args.args[0]["custom_crm_approval_round"], 2)
+		self.assertEqual(create.call_args.args[0]["custom_product_source"], "EXTERNAL_PURCHASE")
+		self.assertEqual(create.call_args.args[0]["items"][0]["custom_product_source"], "EXTERNAL_PURCHASE")
 		old_doc.modified = "ERP-V2"
 		with self.assertRaisesRegex(CRMOrderConflict, "ERP 版本已改变"):
 			check_version(old_doc, payload, require_same_approval_round=False)

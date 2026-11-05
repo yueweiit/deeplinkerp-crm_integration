@@ -6,11 +6,13 @@ def sync_custom_fields():
 	from crm_integration.patches.add_crm_custom_fields import execute as add_crm_fields
 	from crm_integration.patches.add_item_tax_amount_field import execute as add_tax_fields
 	from crm_integration.patches.add_direct_fulfillment_products import execute as add_direct_products
+	from crm_integration.patches.add_product_source_fields import execute as add_product_source_fields
 
 	add_company_fields()
 	add_crm_fields()
 	add_tax_fields()
 	add_direct_products()
+	add_product_source_fields()
 
 
 def after_install():

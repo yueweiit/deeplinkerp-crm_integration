@@ -36,6 +36,37 @@ class TestCRMAPI(UnitTestCase):
 				}
 			)
 
+	def test_product_source_is_optional_but_trade_requires_consistent_header_and_rows(self):
+		base = {"customer": "CUSTOMER-001", "custom_crm_order_no": "CRM-001",
+			"items": [{"item_code": "ITEM-001", "qty": 1}]}
+		with patch.object(frappe.db, "has_column", return_value=True):
+			for header, source in ((None, None), ("", ""), ("SELF_DEVELOPED", "SELF_DEVELOPED"),
+				("EXTERNAL_PURCHASE", "EXTERNAL_PURCHASE"), (None, "SELF_DEVELOPED")):
+				with self.subTest(header=header, source=source):
+					payload = deepcopy(base)
+					if header is not None:
+						payload["custom_product_source"] = header
+					if source is not None:
+						payload["items"][0]["custom_product_source"] = source
+					validate_sales_order_payload(payload)
+			for header, source in ((None, "EXTERNAL_PURCHASE"),
+				("EXTERNAL_PURCHASE", "SELF_DEVELOPED"), ("EXTERNAL_PURCHASE", None),
+				("SELF_DEVELOPED", None), ("OTHER", "OTHER"), (False, False)):
+				with self.subTest(header=header, source=source), self.assertRaises(frappe.ValidationError):
+					payload = deepcopy(base)
+					if header is not None:
+						payload["custom_product_source"] = header
+					if source is not None:
+						payload["items"][0]["custom_product_source"] = source
+					validate_sales_order_payload(payload)
+
+	def test_product_source_requires_migrated_order_and_item_fields(self):
+		payload = {"customer": "CUSTOMER-001", "custom_crm_order_no": "CRM-001",
+			"custom_product_source": "SELF_DEVELOPED",
+			"items": [{"item_code": "ITEM-001", "qty": 1, "custom_product_source": "SELF_DEVELOPED"}]}
+		with patch.object(frappe.db, "has_column", side_effect=[True, False]), self.assertRaises(frappe.ValidationError):
+			validate_sales_order_payload(payload)
+
 	def test_sales_order_create_returns_existing_submitted_order(self):
 		doc = MagicMock(name="existing_sales_order")
 		doc.name = "SO-001"
@@ -58,6 +89,66 @@ class TestCRMAPI(UnitTestCase):
 
 		self.assertTrue(result["idempotent_replay"])
 		self.assertEqual(result["name"], "SO-001")
+
+	def test_idempotent_create_rejects_changed_product_source(self):
+		doc = frappe._dict(name="SO-001", docstatus=1, company="Test Company",
+			custom_product_source="SELF_DEVELOPED", custom_process_status="Pending Deposit Confirmation")
+		with patch.object(api, "get_sales_order_names_by_crm_order_no", return_value=["SO-001"]), patch.object(
+			frappe, "get_doc", return_value=doc), self.assertRaises(frappe.ValidationError):
+			get_existing_sales_order_response({"custom_crm_order_no": "CRM-001", "company": "Test Company",
+				"custom_product_source": "EXTERNAL_PURCHASE"})
+
+	def test_c1_replay_rejects_changed_explicit_item_source(self):
+		doc = frappe._dict(name="SO-001", docstatus=1, company="Test Company",
+			custom_process_status="Pending Deposit Confirmation",
+			items=[frappe._dict(item_code="ITEM-001", custom_crm_order_item_id="ROW-1",
+				custom_product_source="")])
+		payload = {"custom_crm_order_no": "CRM-001", "company": "Test Company",
+			"items": [{"item_code": "ITEM-001", "custom_crm_order_item_id": "ROW-1",
+				"custom_product_source": "SELF_DEVELOPED"}]}
+		with patch.object(api, "get_sales_order_names_by_crm_order_no", return_value=["SO-001"]), \
+			patch.object(frappe, "get_doc", return_value=doc), \
+			self.assertRaisesRegex(frappe.ValidationError, "明细产品来源"):
+			get_existing_sales_order_response(payload)
+
+	def test_c1_replay_matches_reordered_rows_by_stable_crm_id(self):
+		doc = frappe._dict(name="SO-001", docstatus=1, company="Test Company",
+			custom_process_status="Pending Deposit Confirmation",
+			items=[frappe._dict(item_code="ITEM-001", custom_crm_order_item_id="ROW-1",
+				custom_product_source="SELF_DEVELOPED"),
+				frappe._dict(item_code="ITEM-002", custom_crm_order_item_id="ROW-2",
+					custom_product_source="SELF_DEVELOPED")])
+		payload = {"custom_crm_order_no": "CRM-001", "company": "Test Company",
+			"items": [{"item_code": "ITEM-002", "custom_crm_order_item_id": "ROW-2",
+				"custom_product_source": "SELF_DEVELOPED"},
+				{"item_code": "ITEM-001", "custom_crm_order_item_id": "ROW-1",
+					"custom_product_source": "SELF_DEVELOPED"}]}
+		with patch.object(api, "get_sales_order_names_by_crm_order_no", return_value=["SO-001"]), \
+			patch.object(frappe, "get_doc", return_value=doc):
+			self.assertTrue(get_existing_sales_order_response(payload)["idempotent_replay"])
+
+	def test_c1_replay_rejects_ambiguous_duplicate_item_codes_without_ids(self):
+		doc = frappe._dict(name="SO-001", docstatus=1, company="Test Company",
+			custom_process_status="Pending Deposit Confirmation",
+			items=[frappe._dict(item_code="ITEM-001", custom_product_source="SELF_DEVELOPED"),
+				frappe._dict(item_code="ITEM-001", custom_product_source="SELF_DEVELOPED")])
+		payload = {"custom_crm_order_no": "CRM-001", "company": "Test Company",
+			"items": [{"item_code": "ITEM-001", "custom_product_source": "SELF_DEVELOPED"},
+				{"item_code": "ITEM-001", "custom_product_source": "SELF_DEVELOPED"}]}
+		with patch.object(api, "get_sales_order_names_by_crm_order_no", return_value=["SO-001"]), \
+			patch.object(frappe, "get_doc", return_value=doc), \
+			self.assertRaisesRegex(frappe.ValidationError, "无法核对"):
+			get_existing_sales_order_response(payload)
+
+	def test_c1_replay_matches_unique_legacy_item_code_without_ids(self):
+		doc = frappe._dict(name="SO-001", docstatus=1, company="Test Company",
+			custom_process_status="Pending Deposit Confirmation",
+			items=[frappe._dict(item_code="ITEM-001", custom_product_source="SELF_DEVELOPED")])
+		payload = {"custom_crm_order_no": "CRM-001", "company": "Test Company",
+			"items": [{"item_code": "ITEM-001", "custom_product_source": "SELF_DEVELOPED"}]}
+		with patch.object(api, "get_sales_order_names_by_crm_order_no", return_value=["SO-001"]), \
+			patch.object(frappe, "get_doc", return_value=doc):
+			self.assertTrue(get_existing_sales_order_response(payload)["idempotent_replay"])
 
 	def test_idempotent_replay_does_not_create_another_sales_order(self):
 		payload = {
@@ -306,6 +397,32 @@ class TestMissingCRMOrderItems(UnitTestCase):
 		self.assertEqual(plan["added_items"][0]["uom"], "Nos")
 		self.assertEqual(self.doc, before)
 
+	def test_trade_order_completion_requires_explicit_matching_new_row_source(self):
+		self.doc.custom_product_source = "EXTERNAL_PURCHASE"
+		self.doc["items"][0].custom_product_source = "EXTERNAL_PURCHASE"
+		self.source[0]["productSource"] = "EXTERNAL_PURCHASE"
+		plan = self.plan()
+		self.assertFalse(plan["can_complete"])
+		self.assertTrue(any("productSource" in reason for reason in plan["blockers"]))
+		self.source[1]["productSource"] = "EXTERNAL_PURCHASE"
+		plan = self.plan()
+		self.assertTrue(plan["can_complete"], plan["blockers"])
+		self.assertEqual(plan["added_items"][0]["custom_product_source"], "EXTERNAL_PURCHASE")
+
+	def test_completion_rejects_invalid_product_source_code(self):
+		self.source[1]["productSource"] = "TRADE"
+		plan = self.plan()
+		self.assertFalse(plan["can_complete"])
+		self.assertTrue(any("productSource 无效" in reason for reason in plan["blockers"]))
+
+	def test_completion_rejects_changed_existing_row_source(self):
+		self.doc["items"][0].custom_crm_order_item_id = "CRM-ROW-1"
+		self.doc["items"][0].custom_product_source = "SELF_DEVELOPED"
+		self.source[0]["productSource"] = "EXTERNAL_PURCHASE"
+		plan = self.plan()
+		self.assertFalse(plan["can_complete"])
+		self.assertTrue(any("SOI-001" in reason for reason in plan["blockers"]))
+
 	def test_unmatched_old_item_blocks_replacement_append(self):
 		self.doc["items"][0].item_code = "OLD-CODE"
 		plan = self.plan()
@@ -451,6 +568,10 @@ class TestMissingCRMOrderItems(UnitTestCase):
 			native.assert_not_called()
 
 	def test_native_completion_passes_all_old_rows_unchanged_and_binds_only_new(self):
+		self.doc.custom_product_source = "SELF_DEVELOPED"
+		self.doc["items"][0].custom_product_source = "SELF_DEVELOPED"
+		for source in self.source:
+			source["productSource"] = "SELF_DEVELOPED"
 		plan = self.plan()
 		payload = dict(custom_crm_order_no="CRM-001", mode="complete_missing_items",
 			completion_fingerprint=plan["completion_fingerprint"], items=self.source)
@@ -483,6 +604,7 @@ class TestMissingCRMOrderItems(UnitTestCase):
 			native.assert_called_once()
 			self.assertEqual(native.call_args.kwargs["parent_doctype"], "Sales Order")
 			self.assertEqual(set_value.call_args.args[0:2], ("Sales Order Item", "SOI-NEW"))
+			self.assertEqual(set_value.call_args.args[2]["custom_product_source"], "SELF_DEVELOPED")
 			self.assertEqual(result["added_items"][0]["name"], "SOI-NEW")
 			self.assertTrue(result["order_fingerprint"])
 			self.assertTrue(receipt.called, "native completion must persist an atomic retry receipt")

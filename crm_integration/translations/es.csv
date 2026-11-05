@@ -498,3 +498,18 @@ Order fulfillment route schema is outdated. Please migrate the site before finan
 Stored order fulfillment route conflicts with the completed release.,La ruta de cumplimiento guardada no coincide con el resultado de la autorización. Revísela antes de continuar.
 Order fulfillment route can only be recorded by the financial release workflow.,La ruta de cumplimiento solo puede registrarse mediante el proceso de autorización financiera; no puede modificarse directamente.
 MES did not confirm order acceptance; financial release was not completed.,MES no confirmó la recepción del pedido; la autorización financiera no se completó.
+Product Source,Origen del producto
+SELF_DEVELOPED,Desarrollo propio
+EXTERNAL_PURCHASE,Producto comercial
+items 必须是销售订单明细对象数组。,items debe ser un arreglo de líneas de pedido de venta.
+custom_product_source 只能是 SELF_DEVELOPED、EXTERNAL_PURCHASE 或空值。,custom_product_source debe ser SELF_DEVELOPED o EXTERNAL_PURCHASE o estar vacío.
+订单头产品来源必须与全部明细来源一致且均已明确。,El origen del pedido debe coincidir con todas las líneas y todas deben tener un origen definido.
+贸易款明细必须对应明确的贸易款订单头，不能按空来源下发 MES。,Las líneas comerciales requieren que el pedido indique su origen comercial; no se pueden enviar al MES con un origen sin especificar.
+产品来源字段尚未同步，请先迁移 ERP 站点。,Los campos de origen del producto aún no se han sincronizado. Migre primero el sitio ERP.
+订单产品来源不一致，请核对订单头和明细后重试。,Los orígenes del producto no coinciden entre el pedido y sus líneas. Revíselo e inténtelo de nuevo.
+已有 CRM 订单的产品来源与重试请求不同，不能通过 C1 改写订单快照。,El pedido CRM existente tiene otro origen del producto. Un reintento de C1 no puede cambiar su instantánea.
+无法核对 C1 重试的明细来源与已有订单行，请查询现有订单。,No se puede cotejar el origen de las líneas del reintento C1 con el pedido existente. Consulte el pedido actual.
+已有 CRM 订单的明细产品来源与重试请求不同，不能通过 C1 改写订单快照。,Una línea del pedido CRM existente tiene otro origen del producto. Un reintento C1 no puede cambiar su instantánea.
+CRM manifest 第 {0} 行 productSource 无效。,El valor productSource de la línea {0} del manifiesto CRM no es válido.
+现有 ERP 明细 {0} 虽已绑定 CRM 行，但编码、版本、数量、价格、单位或产品来源已冲突，禁止追加替代行。,La línea ERP {0} está vinculada a CRM pero presenta un conflicto con el manifiesto. No se puede añadir una línea de reemplazo.
+补全后的订单产品来源不一致，请提供与订单头一致的 productSource。,El pedido completado tendría orígenes de producto inconsistentes. Indique un productSource igual al de la cabecera.

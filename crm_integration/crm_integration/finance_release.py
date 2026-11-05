@@ -173,7 +173,7 @@ def review_order(doc):
 	elif doc.get("custom_process_status") != PENDING:
 		data["reason"] = _("本单当前不处于待财务放行状态。")
 	elif route == MIXED:
-		data["reason"] = _("直接履约产品与其他产品不能在同一订单放行，请按产品拆分销售订单后重试。")
+		data["reason"] = _("订单产品来源不一致，请核对订单头和明细后重试。")
 	elif route == UNKNOWN:
 		data["reason"] = _("Historical order fulfillment route is unknown. Verify its original MES handling before retrying.")
 	elif data["association_error"]:

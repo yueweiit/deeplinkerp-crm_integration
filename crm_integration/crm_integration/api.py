@@ -17,6 +17,9 @@ from crm_integration.crm_integration.delivery_note import (
 	preview_delivery_note_from_crm,
 )
 from crm_integration.crm_integration.integration_log import create_crm_log, update_crm_log
+from crm_integration.crm_integration.production_routing import (
+	EXTERNAL_PURCHASE, MIXED, PRODUCT_SOURCES, get_production_route,
+)
 from crm_integration.crm_integration.sales_order import (
 	PENDING_CONFIRMATION,
 	PENDING_DEPOSIT_CONFIRMATION,
@@ -106,6 +109,7 @@ SALES_ORDER_ITEM_REFRESH_FIELDS = (
 )
 CRM_ORDER_SOURCE_ITEM_FIELDS = {
 	"id", "itemCode", "version", "unit", "quantity", "unitPrice", "supplyPrice", "vatAmount", "lineNo",
+	"productSource",
 }
 CRM_PIECE_UNITS = {"件", "个", "pieza", "piezas", "pcs", "nos"}
 CRM_MISSING_ITEMS_EVENT = "Sales Order Complete Missing CRM Items"
@@ -127,6 +131,8 @@ def _crm_piece_unit(value):
 
 
 def _crm_source_matches_row(source, row):
+	if "productSource" in source and (source.get("productSource") or "") != (row.get("custom_product_source") or ""):
+		return False
 	if (source.get("itemCode") != row.get("item_code")
 		or str(source.get("version") or "") != str(row.get("custom_version") or "")
 		or source["qty"] != _crm_number(row.get("qty"))
@@ -172,6 +178,9 @@ def plan_missing_crm_sales_order_items(doc, source_items, *, historical_replay=F
 			blockers.append(_("CRM manifest 第 {0} 行缺少有效 price；缺失价格不能视为零。").format(index))
 		if not isinstance(raw.get("version"), str) or len(raw["version"]) > 64:
 			blockers.append(_("CRM manifest 第 {0} 行 version 必须明确提供字符串（无版本用空字符串），且不能超过 64 字符。").format(index))
+		product_source = raw.get("productSource")
+		if product_source is not None and (not isinstance(product_source, str) or product_source not in PRODUCT_SOURCES | {""}):
+			blockers.append(_("CRM manifest 第 {0} 行 productSource 无效。").format(index))
 		ids.add(identity)
 		source.update(identity=identity, qty=qty, rate=rate)
 		sources.append(source)
@@ -189,7 +198,7 @@ def plan_missing_crm_sales_order_items(doc, source_items, *, historical_replay=F
 		else:
 			source = next(source for source in sources if source["identity"] == identity)
 			if not _crm_source_matches_row(source, row):
-				blockers.append(_("现有 ERP 明细 {0} 虽已绑定 CRM 行，但编码、版本、数量、价格或单位已冲突，禁止追加替代行。").format(row.get("name")))
+				blockers.append(_("现有 ERP 明细 {0} 虽已绑定 CRM 行，但编码、版本、数量、价格、单位或产品来源已冲突，禁止追加替代行。").format(row.get("name")))
 			used.add(identity)
 	for row in unbound:
 		matches = [source for source in sources if source["identity"] not in used and _crm_source_matches_row(source, row)]
@@ -252,9 +261,13 @@ def plan_missing_crm_sales_order_items(doc, source_items, *, historical_replay=F
 				blockers.append(_("物料 {0} 的原生仓库默认值与公司 ItemDefault/SO header 不一致。").format(code))
 		if not doc.get("delivery_date"):
 			blockers.append(_("SO 缺少 delivery_date，不能为补行编造日期。"))
-		added.append(dict(item_code=code, custom_version=source.get("version") or "", crm_order_item_id=source["identity"],
+		added.append(dict(item_code=code, custom_version=source.get("version") or "",
+			custom_product_source=source.get("productSource") or "", crm_order_item_id=source["identity"],
 			qty=source["qty"], rate=source["rate"], uom=uom, conversion_factor=factor,
 			warehouse=warehouse, delivery_date=doc.get("delivery_date"), description=item.get("description") or item.get("item_name")))
+	if get_production_route(frappe._dict(custom_product_source=doc.get("custom_product_source"),
+		items=[*doc.get("items", []), *[frappe._dict(row) for row in added]])) == MIXED:
+		blockers.append(_("补全后的订单产品来源不一致，请提供与订单头一致的 productSource。"))
 	resolved_keys = [(row["item_code"], row["custom_version"], row["uom"], row["conversion_factor"], row["qty"], row["rate"])
 		for row in added]
 	if len(resolved_keys) != len(set(resolved_keys)):
@@ -356,6 +369,9 @@ def get_existing_sales_order_response(payload):
 	doc = active_docs[0]
 	if doc.get("company") != payload.get("company"):
 		frappe.throw(_("CRM 销售订单号 {0} 已被其他公司使用。").format(crm_order_no))
+	if "custom_product_source" in payload and (payload.get("custom_product_source") or "") != (doc.get("custom_product_source") or ""):
+		frappe.throw(_("已有 CRM 订单的产品来源与重试请求不同，不能通过 C1 改写订单快照。"))
+	check_existing_item_source_replay(doc, payload)
 	if doc.docstatus != 1:
 		frappe.throw(
 			_("CRM 销售订单号 {0} 已存在，但对应销售订单不是已提交状态。").format(crm_order_no)
@@ -369,6 +385,39 @@ def get_existing_sales_order_response(payload):
 		"process_status": doc.get("custom_process_status"),
 		"idempotent_replay": True,
 	}
+
+
+def check_existing_item_source_replay(doc, payload):
+	incoming = payload.get("items") or []
+	if not any("custom_product_source" in item for item in incoming):
+		return
+	existing = doc.get("items") or []
+	if len(incoming) != len(existing):
+		frappe.throw(_("无法核对 C1 重试的明细来源与已有订单行，请查询现有订单。"))
+	ids = [item.get("custom_crm_order_item_id") for item in incoming]
+	if any(identity is not None and not isinstance(identity, str) for identity in ids) or any(
+		not isinstance(item.get("item_code"), str) or not item.get("item_code") for item in incoming
+	):
+		frappe.throw(_("无法核对 C1 重试的明细来源与已有订单行，请查询现有订单。"))
+	existing_ids = [row.get("custom_crm_order_item_id") for row in existing]
+	if all(ids) and all(existing_ids):
+		existing_by_id = {identity: row for identity, row in zip(existing_ids, existing)}
+		if len(set(ids)) != len(ids) or len(existing_by_id) != len(existing) or set(ids) != set(existing_by_id):
+			frappe.throw(_("无法核对 C1 重试的明细来源与已有订单行，请查询现有订单。"))
+		pairs = [(item, existing_by_id[identity]) for item, identity in zip(incoming, ids)]
+	elif (len({item.get("item_code") for item in incoming}) == len(incoming)
+		and all(item.get("item_code") == row.get("item_code")
+			and (not item.get("custom_crm_order_item_id") or not row.get("custom_crm_order_item_id")
+				or item.get("custom_crm_order_item_id") == row.get("custom_crm_order_item_id"))
+			for item, row in zip(incoming, existing))):
+		pairs = list(zip(incoming, existing))
+	else:
+		frappe.throw(_("无法核对 C1 重试的明细来源与已有订单行，请查询现有订单。"))
+	if any(item.get("item_code") != row.get("item_code") for item, row in pairs):
+		frappe.throw(_("无法核对 C1 重试的明细来源与已有订单行，请查询现有订单。"))
+	if any("custom_product_source" in item and (item.get("custom_product_source") or "") !=
+		(row.get("custom_product_source") or "") for item, row in pairs):
+		frappe.throw(_("已有 CRM 订单的明细产品来源与重试请求不同，不能通过 C1 改写订单快照。"))
 
 
 def log_existing_sales_order_request(payload, response):
@@ -561,7 +610,8 @@ def _apply_missing_crm_sales_order_items(doc, plan):
 				frappe.throw(_("补入行 {0} 的 {1} 与已预览方案不一致。").format(row.get("name"), field))
 		if row.get("net_rate") is not None and flt(row.get("net_rate")) != expected["rate"]:
 			frappe.throw(_("补入行有效 net_rate 与 CRM price 不一致。"))
-		values = {CRM_ROW_FIELD: expected["crm_order_item_id"], "custom_version": expected["custom_version"]}
+		values = {CRM_ROW_FIELD: expected["crm_order_item_id"], "custom_version": expected["custom_version"],
+			"custom_product_source": expected["custom_product_source"]}
 		frappe.db.set_value("Sales Order Item", row.get("name"), values, update_modified=False)
 		row.update(values)
 		added_rows.append(dict(expected, name=row.get("name")))
@@ -739,9 +789,31 @@ def validate_sales_order_payload(payload):
 
 	if not payload.get("items"):
 		frappe.throw(_("缺少销售订单明细：items"))
+	validate_product_source_payload(payload)
 	for item in payload["items"]:
 		if isinstance(item, dict):
 			validate_crm_item_extra_fields(item)
+
+
+def validate_product_source_payload(payload):
+	items = payload["items"]
+	if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+		frappe.throw(_("items 必须是销售订单明细对象数组。"))
+	header = payload.get("custom_product_source")
+	header = "" if header is None else header
+	item_sources = ["" if item.get("custom_product_source") is None else item["custom_product_source"]
+		for item in items]
+	if not isinstance(header, str) or header not in PRODUCT_SOURCES | {""} or any(
+		not isinstance(source, str) or source not in PRODUCT_SOURCES | {""} for source in item_sources
+	):
+		frappe.throw(_("custom_product_source 只能是 SELF_DEVELOPED、EXTERNAL_PURCHASE 或空值。"))
+	if header and any(source != header for source in item_sources):
+		frappe.throw(_("订单头产品来源必须与全部明细来源一致且均已明确。"))
+	if not header and EXTERNAL_PURCHASE in item_sources:
+		frappe.throw(_("贸易款明细必须对应明确的贸易款订单头，不能按空来源下发 MES。"))
+	if "custom_product_source" in payload or any("custom_product_source" in item for item in items):
+		if not all(frappe.db.has_column(doctype, "custom_product_source") for doctype in ("Sales Order", "Sales Order Item")):
+			frappe.throw(_("产品来源字段尚未同步，请先迁移 ERP 站点。"))
 
 
 def validate_crm_item_extra_fields(item):

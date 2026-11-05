@@ -17,6 +17,7 @@ def execute():
 		"label": "Direct Fulfillment Product Prefixes",
 		"description": "One three-character product prefix per line, for example NSF. All models and colors of that product follow the whole order. Empty means no direct products. Only System Managers can change this list.",
 		"default": "NSF",
+		"hidden": 1,
 		"depends_on": "eval:doc.custom_enable_crm_integration",
 		"read_only_depends_on": "eval:frappe.session.user != 'Administrator' && !frappe.user_roles.includes('System Manager')",
 	}], "Sales Order": [{

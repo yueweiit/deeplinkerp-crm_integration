@@ -15,6 +15,9 @@ DIRECT = "DIRECT"
 MES = "MES"
 MIXED = "MIXED"
 UNKNOWN = "UNKNOWN"
+SELF_DEVELOPED = "SELF_DEVELOPED"
+EXTERNAL_PURCHASE = "EXTERNAL_PURCHASE"
+PRODUCT_SOURCES = frozenset({SELF_DEVELOPED, EXTERNAL_PURCHASE})
 
 
 def parse_direct_product_prefixes(value):
@@ -50,29 +53,31 @@ def validate_company_direct_products(doc, method=None):
 
 def get_production_route(sales_order):
 	rows = sales_order.get("items") or []
-	# Missing or invalid lines must never qualify an order for the MES exemption.
-	if not isinstance(rows, (list, tuple)) or not rows:
-		return MES
-	prefixes = get_company_direct_product_prefixes(sales_order.get("company"))
-	direct = []
-	products = set()
-	for row in rows:
-		code = row.get("item_code")
-		product = code.strip().upper()[:3] if isinstance(code, str) else ""
-		products.add(product)
-		direct.append(
-			bool(product) and product in prefixes
-			and flt(row.get("qty")) > 0
-		)
-	if all(direct) and len(products) == 1:
-		return DIRECT
-	return MIXED if any(direct) else MES
+	# Only an explicit, consistent CRM snapshot can exempt an order from MES.
+	# Blank historical sources remain blank and follow MES regardless of item code.
+	if not isinstance(rows, (list, tuple)):
+		return MIXED
+	header = sales_order.get("custom_product_source")
+	header = "" if header is None else header
+	if not isinstance(header, str) or header not in PRODUCT_SOURCES | {""}:
+		return MIXED
+	item_sources = ["" if row.get("custom_product_source") is None else row.get("custom_product_source")
+		for row in rows]
+	if any(not isinstance(source, str) or source not in PRODUCT_SOURCES | {""} for source in item_sources):
+		return MIXED
+	if header == EXTERNAL_PURCHASE and any(not row.get("item_code") or flt(row.get("qty")) <= 0 for row in rows):
+		return MIXED
+	if header:
+		return (DIRECT if header == EXTERNAL_PURCHASE else MES) if rows and all(
+			source == header for source in item_sources
+		) else MIXED
+	return MIXED if EXTERNAL_PURCHASE in item_sources else MES
 
 
 def validate_production_route(sales_order):
 	route = get_effective_production_route(sales_order)
 	if route == MIXED:
-		frappe.throw(_("直接履约产品与其他产品不能在同一订单放行，请按产品拆分销售订单后重试。"))
+		frappe.throw(_("订单产品来源不一致，请核对订单头和明细后重试。"))
 	if route == UNKNOWN:
 		frappe.throw(_("Historical order fulfillment route is unknown. Verify its original MES handling before retrying."))
 	return route
@@ -136,6 +141,8 @@ def get_effective_production_route(sales_order):
 
 def is_direct_fulfillment_order(sales_order):
 	route = get_effective_production_route(sales_order)
+	if route == MIXED:
+		frappe.throw(_("订单产品来源不一致，请核对订单头和明细后重试。"))
 	if route == UNKNOWN:
 		frappe.throw(_("Historical order fulfillment route is unknown. Verify its original MES handling before retrying."))
 	return route == DIRECT
