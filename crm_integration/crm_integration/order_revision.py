@@ -18,7 +18,7 @@ from crm_integration.crm_integration.sales_order import (
 	REJECTED,
 )
 from crm_integration.crm_integration.sales_order_identity import crm_sales_order_creation_lock
-from crm_integration.crm_integration.production_routing import MIXED, get_production_route
+from crm_integration.crm_integration.production_routing import DIRECT, MIXED, get_production_route
 from crm_integration.crm_integration.settings import is_crm_integration_enabled, throw_crm_integration_disabled
 
 
@@ -180,6 +180,8 @@ def eligibility(doc, facts):
 		return "MES_PUSHED", "订单已成功推送 MES，不能修改订单。"
 	if doc.custom_process_status not in EDIT_STATUSES:
 		return "STAGE_LOCKED", "订单已进入禁止修订或撤回阶段。"
+	if doc.get("custom_crm_finance_approval_state") == "ATTEMPTED":
+		return "FINANCE_APPROVAL_UNKNOWN", _("ERP 已尝试向 CRM 回传财务放行，结果尚未确认，不能修订订单。")
 	if production_milestone(doc, facts)["reached"] is None:
 		return "PRODUCTION_UNKNOWN", "ERP 无法确认订单尚未进入生产阶段，不能修订。"
 	return None, None
@@ -204,6 +206,10 @@ def production_milestone(doc, facts):
 	mes_push = facts.get("mesPush") or {}
 	if doc.custom_process_status == PENDING_PRODUCTION or facts.get("stockEntries") or mes_push.get("lastPushStatus") == "Success":
 		return {"reached": True, "source": "ERP process/MES state", "time": None}
+	if (doc.get("custom_crm_fulfillment_route") == DIRECT
+		and doc.get("custom_crm_production_milestone") == "NOT_STARTED"
+		and not (facts.get("workOrders") or facts.get("productionPlans") or mes_push.get("lastPushStatus"))):
+		return {"reached": False, "source": "ERP direct fulfillment", "time": None}
 	if (doc.custom_process_status in EARLY_STATUSES
 		and doc.get("custom_crm_production_milestone") == "NOT_STARTED"
 		and not mes_push.get("lastPushStatus")):

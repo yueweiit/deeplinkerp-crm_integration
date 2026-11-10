@@ -353,7 +353,7 @@ warehouse {0} 与销售订单行仓库 {1} 冲突。,warehouse {0} conflicts wit
 驳回未完成，请核对 ERP 订单和 CRM 状态后重试。,Rejection did not complete. Check the ERP order and CRM status before retrying.
 crm推送日志,CRM Push Logs
 销售出库,Delivery Note
-没有取消此销售订单的权限，无法驳回。,You do not have permission to cancel this Sales Order, so it cannot be rejected.
+没有取消此销售订单的权限，无法驳回。,"You do not have permission to cancel this Sales Order, so it cannot be rejected."
 MES 订单映射冲突，请核对 ERP/CRM 单号与 MES 既有映射，处理冲突后重试。,"MES order mapping conflict. Check the ERP and CRM order numbers against the existing MES mapping, then resolve the conflict before retrying."
 MES 拒绝订单下发（错误码：{0}），请联系集成管理员核对日志。,"MES rejected the order (error code: {0}). Ask an integration administrator to check the log."
 MES 订单下发失败（{0}），请联系集成管理员核对日志。,"Failed to send the order to MES ({0}). Ask an integration administrator to check the log."
@@ -390,3 +390,12 @@ custom_product_source 只能是 SELF_DEVELOPED、EXTERNAL_PURCHASE 或空值。,
 CRM manifest 第 {0} 行 productSource 无效。,Invalid productSource in CRM manifest row {0}.
 现有 ERP 明细 {0} 虽已绑定 CRM 行，但编码、版本、数量、价格、单位或产品来源已冲突，禁止追加替代行。,Existing ERP item {0} is bound to a CRM row but its code or product source conflicts with the manifest. A replacement row cannot be added.
 补全后的订单产品来源不一致，请提供与订单头一致的 productSource。,The completed order would have inconsistent product sources. Supply a productSource matching the order header.
+CRM Finance Approval State,CRM Finance Approval State
+CRM finance approval schema is outdated. Please migrate the site before financial release.,CRM finance approval schema is outdated. Please migrate the site before financial release.
+CRM 放行与生产状态由 ERP 管理，建单请求不能直接设置。,CRM approval and production states are managed by ERP and cannot be set by the order creation request.
+ERP 已尝试向 CRM 回传财务放行，结果尚未确认，不能修订订单。,"ERP has attempted to notify CRM of finance approval. The outcome is unknown, so the order cannot be revised."
+财务审核通过,Finance approved
+贸易款财务放行回执尚未确认；请先重试放行并核对 CRM 状态，暂不能驳回或取消订单。,"The CRM finance approval outcome is unknown. Retry the release and check CRM before rejecting or cancelling this trade order."
+贸易款尚未确认 CRM 财务放行；请财务人员核对 CRM 状态并补发放行通知后重试。,"CRM finance approval is unconfirmed for this trade order. Ask Finance to check CRM and resend the approval before retrying."
+仅已完成财务放行的有效贸易款订单可补发 FINANCE_APPROVED。,FINANCE_APPROVED can only be retried for an active trade order that has completed financial release.
+仅明确为直接履约路径的贸易款订单可补发 FINANCE_APPROVED。,FINANCE_APPROVED can only be retried for a trade order with a recorded direct fulfillment route.

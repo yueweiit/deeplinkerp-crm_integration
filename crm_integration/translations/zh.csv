@@ -179,3 +179,12 @@ custom_product_source 只能是 SELF_DEVELOPED、EXTERNAL_PURCHASE 或空值。,
 CRM manifest 第 {0} 行 productSource 无效。,CRM manifest 第 {0} 行 productSource 无效。
 现有 ERP 明细 {0} 虽已绑定 CRM 行，但编码、版本、数量、价格、单位或产品来源已冲突，禁止追加替代行。,现有 ERP 明细 {0} 虽已绑定 CRM 行，但编码、版本、数量、价格、单位或产品来源已冲突，禁止追加替代行。
 补全后的订单产品来源不一致，请提供与订单头一致的 productSource。,补全后的订单产品来源不一致，请提供与订单头一致的 productSource。
+CRM Finance Approval State,CRM 财务放行回传状态
+CRM finance approval schema is outdated. Please migrate the site before financial release.,CRM 财务放行字段尚未同步，请先迁移站点。
+CRM 放行与生产状态由 ERP 管理，建单请求不能直接设置。,CRM 放行与生产状态由 ERP 管理，建单请求不能直接设置。
+ERP 已尝试向 CRM 回传财务放行，结果尚未确认，不能修订订单。,ERP 已尝试向 CRM 回传财务放行，结果尚未确认，不能修订订单。
+财务审核通过,财务审核通过
+贸易款财务放行回执尚未确认；请先重试放行并核对 CRM 状态，暂不能驳回或取消订单。,贸易款财务放行回执尚未确认；请先重试放行并核对 CRM 状态，暂不能驳回或取消订单。
+贸易款尚未确认 CRM 财务放行；请财务人员核对 CRM 状态并补发放行通知后重试。,贸易款尚未确认 CRM 财务放行；请财务人员核对 CRM 状态并补发放行通知后重试。
+仅已完成财务放行的有效贸易款订单可补发 FINANCE_APPROVED。,仅已完成财务放行的有效贸易款订单可补发 FINANCE_APPROVED。
+仅明确为直接履约路径的贸易款订单可补发 FINANCE_APPROVED。,仅明确为直接履约路径的贸易款订单可补发 FINANCE_APPROVED。

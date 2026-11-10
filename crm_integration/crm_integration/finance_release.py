@@ -10,6 +10,7 @@ from pypika.analytics import RowNumber
 
 from crm_integration.crm_integration.settings import is_crm_integration_enabled
 from crm_integration.crm_integration.production_routing import MIXED, UNKNOWN, get_effective_production_route
+from crm_integration.crm_integration.sales_order import finance_approval_cancel_reason
 
 CAPABILITY = "Sales Production Release Permission"
 AUDIT_EVENT = "Finance Production Release"
@@ -82,6 +83,8 @@ def reject_reason(doc, crm_enabled):
 		return _("只有已提交的销售订单可以驳回并取消。")
 	if doc.get("custom_process_status") != PENDING:
 		return _("只有待确认定金的销售订单可以驳回。")
+	if reason := finance_approval_cancel_reason(doc):
+		return reason
 	if not doc.get("custom_crm_order_no"):
 		return _("缺少 CRM 订单编号，无法推送状态到 CRM。")
 	return ""

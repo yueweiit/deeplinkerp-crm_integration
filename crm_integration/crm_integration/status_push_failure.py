@@ -8,7 +8,7 @@ from urllib.parse import parse_qsl, quote, quote_plus, unquote, urlsplit, urluns
 REDACTED = "[REDACTED]"
 SENSITIVE_KEY = re.compile(r"authorization|api.?key|token|secret|password|passwd|cookie|credential", re.I)
 REQUEST_FIELDS = (
-	"sourceSystem", "externalStatus", "externalOrderId", "erpOrderId", "crmApprovalRound", "traceId",
+	"sourceSystem", "externalStatus", "crmOrderId", "externalOrderId", "erpOrderId", "crmApprovalRound", "traceId",
 )
 SUMMARY_FIELDS = ("errorCode", "code", "traceId", "trace_id", "success", "status", "message", "errors")
 CREDENTIAL_VALUE = re.compile(
@@ -91,7 +91,7 @@ def status_request_evidence(url, payload, api_key):
 	# Never copy request headers, free-form remarks or attachments into log evidence.
 	return {
 		"request_url": safe_url(url),
-		"request_payload": redact_evidence({key: payload.get(key) for key in REQUEST_FIELDS}, known_secrets(url, api_key)),
+		"request_payload": redact_evidence({key: payload[key] for key in REQUEST_FIELDS if key in payload}, known_secrets(url, api_key)),
 	}
 
 

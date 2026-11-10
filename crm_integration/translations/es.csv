@@ -513,3 +513,12 @@ custom_product_source 只能是 SELF_DEVELOPED、EXTERNAL_PURCHASE 或空值。,
 CRM manifest 第 {0} 行 productSource 无效。,El valor productSource de la línea {0} del manifiesto CRM no es válido.
 现有 ERP 明细 {0} 虽已绑定 CRM 行，但编码、版本、数量、价格、单位或产品来源已冲突，禁止追加替代行。,La línea ERP {0} está vinculada a CRM pero presenta un conflicto con el manifiesto. No se puede añadir una línea de reemplazo.
 补全后的订单产品来源不一致，请提供与订单头一致的 productSource。,El pedido completado tendría orígenes de producto inconsistentes. Indique un productSource igual al de la cabecera.
+CRM Finance Approval State,Estado de aprobación financiera de CRM
+CRM finance approval schema is outdated. Please migrate the site before financial release.,El esquema de aprobación financiera de CRM está desactualizado. Migre el sitio antes de autorizar el pedido.
+CRM 放行与生产状态由 ERP 管理，建单请求不能直接设置。,Los estados de aprobación y producción de CRM los gestiona ERP y no se pueden establecer al crear el pedido.
+ERP 已尝试向 CRM 回传财务放行，结果尚未确认，不能修订订单。,ERP ha intentado notificar a CRM la aprobación financiera. El resultado no está confirmado y el pedido no se puede modificar.
+财务审核通过,Aprobación financiera completada
+贸易款财务放行回执尚未确认；请先重试放行并核对 CRM 状态，暂不能驳回或取消订单。,"El resultado de la aprobación financiera en CRM es incierto. Reintente la autorización y compruebe CRM antes de rechazar o cancelar este pedido comercial."
+贸易款尚未确认 CRM 财务放行；请财务人员核对 CRM 状态并补发放行通知后重试。,"La aprobación financiera en CRM no está confirmada para este pedido comercial. Solicite a Finanzas que compruebe CRM y reenvíe la autorización antes de reintentar."
+仅已完成财务放行的有效贸易款订单可补发 FINANCE_APPROVED。,FINANCE_APPROVED solo se puede reenviar para un pedido comercial activo con aprobación financiera completada.
+仅明确为直接履约路径的贸易款订单可补发 FINANCE_APPROVED。,FINANCE_APPROVED solo se puede reenviar para un pedido comercial con ruta de cumplimiento directo registrada.

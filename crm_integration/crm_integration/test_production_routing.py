@@ -1,5 +1,6 @@
 """Product-source release regressions use mocked external calls and no business-data writes."""
 
+from contextlib import nullcontext
 from unittest.mock import MagicMock, call, patch
 
 import frappe
@@ -21,8 +22,13 @@ def order(*codes, status=flow.DEPOSIT_CONFIRMATION_PROCESSING):
 	header_source = sources.pop() if len(sources) == 1 else None
 	values = frappe._dict(company=doc.company, custom_crm_order_no="NSF-TEST-CRM", custom_process_status=status,
 		custom_crm_production_started=0, status="To Deliver and Bill", custom_product_source=header_source,
-		items=items)
+		docstatus=1, items=items)
 	doc.get.side_effect = values.get
+	def db_set(field, value=None, **_kwargs):
+		for key, item in (field.items() if isinstance(field, dict) else ((field, value),)):
+			values[key] = item
+			setattr(doc, key, item)
+	doc.db_set.side_effect = db_set
 	return doc
 
 
@@ -30,6 +36,9 @@ class TestProductSourceRouting(UnitTestCase):
 	def setUp(self):
 		super().setUp()
 		self.enterContext(patch.object(routing, "get_company_direct_product_prefixes", return_value=frozenset({"NSF"})))
+		has_column = frappe.db.has_column
+		self.enterContext(patch.object(frappe.db, "has_column", side_effect=lambda doctype, field: (
+			True if field == "custom_crm_finance_approval_state" else has_column(doctype, field))))
 
 	def test_only_nonempty_all_nsf_positive_orders_are_direct(self):
 		for codes, expected in (
@@ -61,7 +70,7 @@ class TestProductSourceRouting(UnitTestCase):
 					items=[frappe._dict(item_code="NBD4030000101", qty=1, custom_product_source=item)])
 				self.assertEqual(routing.get_production_route(doc), routing.MIXED)
 
-	def test_direct_release_keeps_crm_events_and_production_lock_but_waits_for_final_payment(self):
+	def test_direct_release_sends_finance_approval_without_claiming_production(self):
 		doc = order("NSF4030112104", "NSF4030117104")
 		with (
 			patch.object(flow, "push_sales_order_status_to_crm") as crm,
@@ -70,14 +79,15 @@ class TestProductSourceRouting(UnitTestCase):
 			patch.object(frappe.db, "commit") as commit,
 		):
 			result = flow.run_confirm_deposit_sync(doc)
-		self.assertEqual(crm.call_args_list, [call(doc, flow.CRM_STATUS_CONFIRMED_DEPOSIT_PUSH_PRODUCTION), call(doc, flow.CRM_STATUS_IN_PRODUCTION)])
+		crm.assert_called_once_with(doc, flow.CRM_STATUS_FINANCE_APPROVED, remark=flow._("财务审核通过"))
 		mes.assert_not_called()
 		status.assert_called_once_with(doc, flow.PENDING_FINAL_PAYMENT)
 		self.assertEqual(result["fulfillment_route"], routing.DIRECT)
 		self.assertEqual(result["process_status"], flow.PENDING_FINAL_PAYMENT)
-		self.assertEqual(doc.custom_crm_production_started, 1)
-		self.assertEqual(doc.custom_crm_production_milestone, "REACHED")
-		self.assertEqual(commit.call_count, 2)
+		self.assertEqual(doc.get("custom_crm_production_started"), 0)
+		self.assertEqual(doc.get("custom_crm_production_milestone"), None)
+		self.assertEqual(doc.custom_crm_finance_approval_state, "ACKNOWLEDGED")
+		commit.assert_called_once_with()
 
 	def test_existing_e3_confirmed_nsf_failure_can_retry_without_mes_or_clearing_lock(self):
 		doc = order("NSF4030112104")
@@ -90,19 +100,99 @@ class TestProductSourceRouting(UnitTestCase):
 			patch.object(frappe.db, "commit") as commit,
 		):
 			flow.run_confirm_deposit_sync(doc)
-		self.assertEqual(crm.call_count, 2)
+		crm.assert_called_once_with(doc, flow.CRM_STATUS_FINANCE_APPROVED, remark=flow._("财务审核通过"))
 		mes.assert_not_called()
-		doc.db_set.assert_called_once_with(routing.ORDER_ROUTE_FIELD, routing.DIRECT, update_modified=False)
-		commit.assert_not_called()
+		doc.db_set.assert_any_call(routing.ORDER_ROUTE_FIELD, routing.DIRECT, update_modified=False)
+		commit.assert_called_once_with()
 		status.assert_called_once_with(doc, flow.PENDING_FINAL_PAYMENT)
 
 	def test_direct_final_payment_state_replays_without_external_calls(self):
 		doc = order("NSF4030112104", status=flow.PENDING_FINAL_PAYMENT)
+		doc.db_set(routing.ORDER_ROUTE_FIELD, routing.DIRECT)
+		doc.db_set("custom_crm_finance_approval_state", "ACKNOWLEDGED")
 		with patch.object(flow, "push_sales_order_status_to_crm") as crm, patch.object(flow, "push_sales_order_to_mes") as mes, patch.object(flow, "set_process_status") as status:
 			result = flow.run_confirm_deposit_sync(doc)
 		self.assertTrue(result["idempotent_replay"])
 		self.assertEqual(result["process_status"], flow.PENDING_FINAL_PAYMENT)
 		crm.assert_not_called(); mes.assert_not_called(); status.assert_not_called()
+
+	def test_old_direct_final_payment_does_not_report_sync_success_without_crm_receipt(self):
+		doc = order("NSF4030112104", status=flow.PENDING_FINAL_PAYMENT)
+		doc.db_set(routing.ORDER_ROUTE_FIELD, routing.DIRECT)
+		with patch.object(flow, "push_sales_order_status_to_crm") as crm, self.assertRaises(frappe.ValidationError):
+			flow.run_confirm_deposit_sync(doc)
+		crm.assert_not_called()
+
+	def test_trade_final_payment_skips_e5_but_mes_order_keeps_it(self):
+		for code, expected_calls in (("NSF4030112104", 0), ("NBD4030000101", 1)):
+			with self.subTest(code=code):
+				doc = order(code, status=flow.PENDING_FINAL_PAYMENT)
+				doc.db_set(routing.ORDER_ROUTE_FIELD, routing.DIRECT if code.startswith("NSF") else routing.MES)
+				if code.startswith("NSF"):
+					doc.db_set("custom_crm_finance_approval_state", "ACKNOWLEDGED")
+				doc.precision.return_value = 2
+				with (
+					patch.object(frappe, "get_doc", return_value=doc),
+					patch.object(flow, "is_crm_integration_enabled", return_value=True),
+					patch("crm_integration.crm_integration.finance_release.assert_production_released"),
+					patch.object(flow, "set_process_status") as set_status,
+					patch.object(flow, "enqueue_sales_order_status_to_crm") as crm_queue,
+					patch.object(flow, "enqueue_mes_sales_order_status_callback"),
+				):
+					flow.reconcile_final_payment(doc.name)
+				set_status.assert_called_once_with(doc, flow.DELIVERABLE)
+				self.assertEqual(crm_queue.call_count, expected_calls)
+
+	def test_old_trade_final_payment_fails_before_local_release_without_finance_receipt(self):
+		doc = order("NSF4030112104", status=flow.PENDING_FINAL_PAYMENT)
+		doc.db_set(routing.ORDER_ROUTE_FIELD, routing.DIRECT)
+		doc.precision.return_value = 2
+		with (
+			patch.object(frappe, "get_doc", return_value=doc),
+			patch.object(flow, "is_crm_integration_enabled", return_value=True),
+			patch.object(review, "assert_production_released"),
+			patch.object(flow, "set_process_status") as set_status,
+			patch.object(flow, "enqueue_sales_order_status_to_crm") as crm_queue,
+			self.assertRaises(frappe.ValidationError),
+		):
+			flow.reconcile_final_payment(doc.name)
+		set_status.assert_not_called(); crm_queue.assert_not_called()
+
+	def test_old_queued_e5_for_trade_requires_confirmed_finance_approval(self):
+		doc = order("NSF4030112104", status=flow.DELIVERABLE)
+		doc.get.side_effect = lambda field: routing.DIRECT if field == routing.ORDER_ROUTE_FIELD else {
+			"company": doc.company,
+		}.get(field)
+		with (
+			patch.object(frappe, "get_doc", return_value=doc),
+			patch.object(flow, "is_crm_integration_enabled", return_value=True),
+			patch.object(flow, "create_crm_log") as log,
+			patch.object(flow.requests, "post") as post,
+			self.assertRaises(frappe.ValidationError),
+		):
+			flow.push_sales_order_status_to_crm_job(doc.name, flow.CRM_STATUS_PENDING_SHIPMENT)
+		log.assert_not_called(); post.assert_not_called()
+		doc.get.side_effect = lambda field: routing.DIRECT if field == routing.ORDER_ROUTE_FIELD else {
+			"company": doc.company, "custom_crm_finance_approval_state": "ACKNOWLEDGED",
+		}.get(field)
+		with patch.object(frappe, "get_doc", return_value=doc), patch.object(flow, "is_crm_integration_enabled", return_value=True):
+			self.assertIsNone(flow.push_sales_order_status_to_crm_job(doc.name, flow.CRM_STATUS_PENDING_SHIPMENT))
+
+	def test_recorded_mes_route_keeps_e5_even_if_source_snapshot_conflicts(self):
+		doc = frappe._dict(custom_crm_fulfillment_route=routing.MES,
+			custom_product_source=routing.EXTERNAL_PURCHASE,
+			items=[frappe._dict(item_code="NSF4030112104", qty=1,
+				custom_product_source=routing.EXTERNAL_PURCHASE)])
+		self.assertFalse(flow.skip_trade_pending_shipment(doc, flow.CRM_STATUS_PENDING_SHIPMENT))
+
+	def test_historical_unknown_route_does_not_guess_e5_from_current_source(self):
+		doc = frappe._dict(name="OLD-TRADE-SO", docstatus=1,
+			custom_crm_order_no="OLD-CRM", custom_process_status=flow.PENDING_FINAL_PAYMENT,
+			custom_product_source=routing.EXTERNAL_PURCHASE,
+			items=[frappe._dict(item_code="NSF4030112104", qty=1,
+				custom_product_source=routing.EXTERNAL_PURCHASE)])
+		with patch.object(frappe.db, "exists", return_value=False), self.assertRaises(frappe.ValidationError):
+			flow.skip_trade_pending_shipment(doc, flow.CRM_STATUS_PENDING_SHIPMENT)
 
 	def test_crm_failure_does_not_release_nsf_order(self):
 		doc = order("NSF4030112104")
@@ -126,19 +216,129 @@ class TestProductSourceRouting(UnitTestCase):
 			flow.run_confirm_deposit_sync(doc)
 		crm.assert_not_called(); mes.assert_not_called(); status.assert_not_called(); doc.db_set.assert_not_called()
 
-	def test_nsf_e3_timeout_retains_attempt_marker_without_marking_financial_release_complete(self):
+	def test_trade_finance_approval_timeout_retains_attempt_marker_without_release(self):
 		doc = order("NSF4030112104")
 		with (
-			patch.object(flow, "push_sales_order_status_to_crm", side_effect=[None, RuntimeError("E3 timeout")]),
+			patch.object(flow, "push_sales_order_status_to_crm", side_effect=RuntimeError("Finance approval timeout")),
 			patch.object(flow, "push_sales_order_to_mes") as mes,
 			patch.object(flow, "set_process_status") as status,
 			patch.object(frappe.db, "commit") as commit,
 			self.assertRaises(RuntimeError),
 		):
 			flow.run_confirm_deposit_sync(doc)
-		doc.db_set.assert_called_once_with("custom_crm_production_milestone", "ATTEMPTED", update_modified=True)
+		doc.db_set.assert_called_once_with("custom_crm_finance_approval_state", "ATTEMPTED", update_modified=True)
 		commit.assert_called_once_with()
 		status.assert_not_called(); mes.assert_not_called()
+
+	def test_trade_release_checks_finance_state_column_before_crm_call(self):
+		doc = order("NSF4030112104")
+		with (
+			patch.object(frappe.db, "has_column", side_effect=lambda _doctype, field: field != "custom_crm_finance_approval_state"),
+			patch.object(flow, "push_sales_order_status_to_crm") as crm,
+			self.assertRaises(frappe.ValidationError),
+		):
+			flow.run_confirm_deposit_sync(doc)
+		crm.assert_not_called(); doc.db_set.assert_not_called()
+
+	def test_trade_preflight_checks_finance_state_column_before_queue_or_audit(self):
+		doc = order("NSF4030112104", status=flow.PENDING_DEPOSIT_CONFIRMATION)
+		with (
+			patch.object(frappe.db, "get_value"),
+			patch.object(frappe.db, "has_column", side_effect=lambda _doctype, field: field != "custom_crm_finance_approval_state"),
+			patch.object(review, "read_order", return_value=doc),
+			patch.object(review, "review_order", return_value={"can_release": True}),
+			patch.object(review, "has_release_permission", return_value=True),
+			patch.object(flow, "is_crm_integration_enabled", return_value=True),
+			patch.object(flow, "create_crm_log") as audit,
+			patch.object(flow, "enqueue_confirm_deposit_and_push_to_mes") as queue,
+			self.assertRaises(frappe.ValidationError),
+		):
+			flow.confirm_deposit_and_push_to_mes(doc.name)
+		audit.assert_not_called(); queue.assert_not_called(); doc.db_set.assert_not_called()
+
+	def test_explicit_backfill_sends_old_direct_finance_approval_once(self):
+		doc = order("NSF4030112104", status=flow.PENDING_FINAL_PAYMENT)
+		doc.db_set(routing.ORDER_ROUTE_FIELD, routing.DIRECT)
+		with (
+			patch.object(frappe, "get_doc", return_value=doc),
+			patch.object(frappe.db, "get_value"),
+			patch.object(flow, "crm_sales_order_creation_lock", return_value=nullcontext()),
+			patch.object(review, "has_release_permission", return_value=True),
+			patch.object(flow, "is_crm_integration_enabled", return_value=True),
+			patch.object(flow, "push_sales_order_status_to_crm") as crm,
+			patch.object(frappe.db, "commit") as commit,
+		):
+			result = flow.retry_trade_finance_approval(doc.name)
+			again = flow.retry_trade_finance_approval(doc.name)
+		self.assertFalse(result["idempotent_replay"])
+		self.assertTrue(again["idempotent_replay"])
+		crm.assert_called_once_with(doc, flow.CRM_STATUS_FINANCE_APPROVED, remark=flow._("财务审核通过"))
+		self.assertEqual(doc.get("custom_crm_finance_approval_state"), "ACKNOWLEDGED")
+		commit.assert_called_once_with()
+
+	def test_backfill_rejects_mes_or_unreleased_orders_without_external_call(self):
+		for code, status in (("NBD4030000101", flow.PENDING_FINAL_PAYMENT),
+			("NSF4030112104", flow.PENDING_DEPOSIT_CONFIRMATION)):
+			with self.subTest(code=code, status=status):
+				doc = order(code, status=status)
+				with (
+					patch.object(frappe, "get_doc", return_value=doc),
+					patch.object(frappe.db, "get_value"),
+					patch.object(flow, "crm_sales_order_creation_lock", return_value=nullcontext()),
+					patch.object(review, "has_release_permission", return_value=True),
+					patch.object(flow, "is_crm_integration_enabled", return_value=True),
+					patch.object(flow, "push_sales_order_status_to_crm") as crm,
+					self.assertRaises(frappe.ValidationError),
+				):
+					flow.retry_trade_finance_approval(doc.name)
+				crm.assert_not_called()
+
+	def test_backfill_requires_release_permission_before_order_access(self):
+		with patch.object(review, "has_release_permission", return_value=False), patch.object(frappe, "get_doc") as get_doc, self.assertRaises(frappe.PermissionError):
+			flow.retry_trade_finance_approval("SO-SECRET")
+		get_doc.assert_not_called()
+
+	def test_backfill_preserves_sanitized_failure_after_request_rollback(self):
+		doc = order("NSF4030112104", status=flow.PENDING_FINAL_PAYMENT)
+		doc.db_set(routing.ORDER_ROUTE_FIELD, routing.DIRECT)
+		error = frappe.ValidationError("CRM rejected status")
+		error.crm_status_failure = {"direction": "Outbound", "event": "Finance Approved",
+			"status": "Failed", "source": "ERPNext", "reference_doctype": "Sales Order",
+			"reference_name": doc.name, "request_payload": {"traceId": "safe"}}
+		with (
+			patch.object(frappe, "get_doc", return_value=doc),
+			patch.object(frappe.db, "get_value"),
+			patch.object(flow, "crm_sales_order_creation_lock", return_value=nullcontext()),
+			patch.object(review, "has_release_permission", return_value=True),
+			patch.object(flow, "is_crm_integration_enabled", return_value=True),
+			patch.object(flow, "confirm_trade_finance_approval", side_effect=error),
+			patch.object(flow, "create_crm_log") as log,
+			patch.object(frappe.db, "rollback") as rollback,
+			patch.object(frappe.db, "commit") as commit,
+			self.assertRaises(frappe.ValidationError),
+		):
+			flow.retry_trade_finance_approval(doc.name)
+		rollback.assert_called_once_with()
+		log.assert_called_once_with(**error.crm_status_failure)
+		commit.assert_called_once_with()
+
+	def test_trade_retry_acknowledges_finance_without_erasing_legacy_e3_unknown(self):
+		doc = order("NSF4030112104")
+		values = {"custom_crm_finance_approval_state": "ATTEMPTED",
+			"custom_crm_production_milestone": "ATTEMPTED"}
+		original_get = doc.get.side_effect
+		doc.get.side_effect = lambda field: values.get(field, original_get(field))
+		with (
+			patch.object(flow, "push_sales_order_status_to_crm") as crm,
+			patch.object(flow, "push_sales_order_to_mes") as mes,
+			patch.object(flow, "set_process_status"),
+			patch.object(frappe.db, "commit") as commit,
+		):
+			flow.run_confirm_deposit_sync(doc)
+		crm.assert_called_once_with(doc, flow.CRM_STATUS_FINANCE_APPROVED, remark=flow._("财务审核通过"))
+		mes.assert_not_called(); commit.assert_not_called()
+		self.assertEqual(doc.custom_crm_finance_approval_state, "ACKNOWLEDGED")
+		self.assertEqual(doc.get("custom_crm_production_milestone"), "ATTEMPTED")
 
 	def test_mixed_preflight_cannot_queue_even_if_a_caller_supplies_an_outdated_review(self):
 		doc = order("NSF4030112104", "NBD4030000101", status=flow.PENDING_DEPOSIT_CONFIRMATION)
@@ -326,7 +526,7 @@ class TestDurableProductionRoute(UnitTestCase):
 
 	def test_direct_route_is_not_reclassified_when_product_is_removed_mid_sync(self):
 		doc = order("NSF4030112104")
-		with patch.object(routing, "get_company_direct_product_prefixes", side_effect=[frozenset({"NSF"}), frozenset()]) as config, patch.object(flow, "push_sales_order_status_to_crm"), patch.object(flow, "push_sales_order_to_mes") as mes, patch.object(frappe.db, "commit"), patch.object(flow, "set_process_status") as status:
+		with patch.object(routing, "get_company_direct_product_prefixes", side_effect=[frozenset({"NSF"}), frozenset()]) as config, patch.object(frappe.db, "has_column", return_value=True), patch.object(flow, "push_sales_order_status_to_crm"), patch.object(flow, "push_sales_order_to_mes") as mes, patch.object(frappe.db, "commit"), patch.object(flow, "set_process_status") as status:
 			flow.run_confirm_deposit_sync(doc)
 		config.assert_not_called()
 		mes.assert_not_called()

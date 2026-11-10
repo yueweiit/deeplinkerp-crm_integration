@@ -60,7 +60,7 @@ R2 可在 `header.custom_product_source` 与 `items[].custom_product_source` 中
 
 只有订单头明确为 `EXTERNAL_PURCHASE` 且明细均为贸易款时，整单走 `DIRECT` 并跳过 MES；自研款及空来源走 `MES`。旧 Company `custom_direct_fulfillment_product_prefixes` 保留历史数据但隐藏、不再决定未放行订单路径。因此来源为空的未放行旧 NSF 订单也会走 MES，发布前须核对这些订单。已放行订单优先读取已保存的 `custom_crm_fulfillment_route`、既有成功审计和 MES 记录，不因本次规则更新重新判定，也不批量填充历史来源。
 
-直接履约仍须人工财务确认，继续按 E2/E3 回传 CRM 并保留审计及修订锁；跳过 MES 配置检查、B1 下发和后续 MES 回调，成功后进入 `Pending Final Payment`。MES 路径只有 MES 明确返回 `success=true` 才能进入 `Pending Production`。`production_routing.py` 为财务放行和 `mes_integration.settings.requires_sales_order_mes_sync` 的共享策略；worker 在外部同步前确定路径，完成后将实际 `DIRECT`/`MES` 写入订单路径快照。未知历史路径保持 `UNKNOWN` 并阻止 MES HTTP，需人工核对。生产发布须配套迁移新字段及重启相关进程；本地回归入口为 `test_api.py`、`test_production_routing.py` 和 `mes_integration/test_direct_fulfillment.py`。
+直接履约仍须人工财务确认；明确贸易款财务放行只回传 `FINANCE_APPROVED`，CRM 进入待发货，ERP 进入 `Pending Final Payment`，不发送 E2/E3、MES B1 或尾款核销时的 E5。发起回传前将 `custom_crm_finance_approval_state` 设为 `ATTEMPTED`；回执不明时禁止修订、驳回与取消，重试使用相同 `traceId`。仅 CRM HTTP 成功且未明确返回 `success:false` 才记录 `ACKNOWLEDGED`；不修改旧订单已有 E3 生产事实。旧 `DIRECT` 订单缺少回执时，尾款核销或旧 E5 队列任务明确失败；财务放行权限人员核对 CRM 状态后，可按单调用 POST `crm_integration.crm_integration.sales_order.retry_trade_finance_approval` 补发，再重试尾款核销。已有可发货旧单也使用同一入口，不自动批量重放。MES 路径仍发送 E2/E3，只有 MES 明确返回 `success=true` 才能进入 `Pending Production`，尾款核销时继续发送 E5。`production_routing.py` 为财务放行和 `mes_integration.settings.requires_sales_order_mes_sync` 的共享策略；worker 在外部同步前确定路径，完成后将实际 `DIRECT`/`MES` 写入订单路径快照。未知历史路径保持 `UNKNOWN` 并阻止 MES HTTP，需人工核对。生产发布须配套迁移新字段及重启相关进程；本地回归入口为 `test_api.py`、`test_production_routing.py` 和 `mes_integration/test_direct_fulfillment.py`。
 
 ### Contributing
 

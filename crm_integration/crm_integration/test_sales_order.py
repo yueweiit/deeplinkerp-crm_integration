@@ -7,6 +7,7 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 
 from crm_integration.crm_integration import sales_order as crm_sales_order
 from crm_integration.crm_integration import settings as crm_settings
+from crm_integration.crm_integration.api import validate_sales_order_payload
 from crm_integration.crm_integration.sales_order import (
 	CRM_STATUS_CONFIRMED_DEPOSIT_PUSH_PRODUCTION,
 	CRM_STATUS_IN_PRODUCTION,
@@ -181,6 +182,7 @@ class TestMESSalesOrderPayload(UnitTestCase):
 class TestSalesOrderPermissions(UnitTestCase):
 	def setUp(self):
 		super().setUp()
+		self.enterContext(patch("crm_integration.crm_integration.sales_order.now", return_value="2026-10-26 00:00:00"))
 		self.enterContext(patch("crm_integration.crm_integration.production_routing.get_company_direct_product_prefixes", return_value=frozenset({"NSF"})))
 		def scoped_read(name):
 			doc = frappe.get_doc("Sales Order", name)
@@ -202,6 +204,10 @@ class TestSalesOrderPermissions(UnitTestCase):
 			self.assertRaises(frappe.ValidationError),
 		):
 			prevent_duplicate_crm_order_no(doc)
+
+	def test_crm_cannot_set_erp_finance_callback_state_on_create(self):
+		with self.assertRaises(frappe.ValidationError):
+			validate_sales_order_payload({"custom_crm_finance_approval_state": "ACKNOWLEDGED"})
 
 	def test_reject_checks_cancel_permission_before_crm_push(self):
 		doc = self.make_sales_order()
@@ -241,6 +247,20 @@ class TestSalesOrderPermissions(UnitTestCase):
 		lock.assert_called_once_with("Sales Order", "SO-001", "name", for_update=True)
 		self.assertEqual(events, ["lock", "cancel", "rejected", "notify", "E1"])
 		self.assertEqual(result["status"], "success")
+
+	def test_unknown_trade_finance_callback_blocks_reject_before_cancel_or_e1(self):
+		doc = self.make_sales_order()
+		original_get = doc.get.side_effect
+		doc.get.side_effect = lambda field: "ATTEMPTED" if field == "custom_crm_finance_approval_state" else original_get(field)
+		with (
+			patch.object(frappe, "get_doc", return_value=doc),
+			patch("crm_integration.crm_integration.sales_order.is_crm_integration_enabled", return_value=True),
+			patch("crm_integration.crm_integration.sales_order.push_sales_order_status_to_crm") as push_status,
+			self.assertRaises(frappe.ValidationError),
+		):
+			reject_sales_order(doc.name)
+		doc.cancel.assert_not_called()
+		push_status.assert_not_called()
 
 	def test_reject_does_not_send_e1_if_native_cancel_fails(self):
 		doc = self.make_sales_order()
@@ -313,8 +333,15 @@ class TestSalesOrderPermissions(UnitTestCase):
 				"crm_integration.crm_integration.sales_order.is_crm_integration_enabled",
 				return_value=True,
 			),
-			self.assertRaisesRegex(frappe.ValidationError, "暂时不能取消销售订单"),
+			self.assertRaises(frappe.ValidationError),
 		):
+			prevent_deposit_confirmation_processing_cancel(doc)
+
+	def test_unknown_trade_finance_callback_blocks_native_cancel_after_worker_restores_pending(self):
+		doc = self.make_sales_order()
+		original_get = doc.get.side_effect
+		doc.get.side_effect = lambda field: "ATTEMPTED" if field == "custom_crm_finance_approval_state" else original_get(field)
+		with patch("crm_integration.crm_integration.sales_order.is_crm_integration_enabled", return_value=True), self.assertRaises(frappe.ValidationError):
 			prevent_deposit_confirmation_processing_cancel(doc)
 
 	def test_confirm_deposit_queues_external_sync_after_commit(self):

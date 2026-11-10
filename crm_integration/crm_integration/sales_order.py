@@ -36,6 +36,7 @@ CRM_STATUS_API_TIMEOUT = 15
 MES_SALES_ORDER_PUSH_EVENT = "sales_order.created"
 CRM_STATUS_CONFIRMED_DEPOSIT_PUSH_PRODUCTION = "CONFIRMED_DEPOSIT_PUSH_PRODUCTION"
 CRM_STATUS_IN_PRODUCTION = "IN_PRODUCTION"
+CRM_STATUS_FINANCE_APPROVED = "FINANCE_APPROVED"
 CRM_STATUS_FINANCE_REJECTED = "FINANCE_REJECTED"
 CRM_STATUS_SHIPMENT_CREATED = "SHIPMENT_CREATED"
 CRM_STATUS_SHIPMENT_CANCELLED = "SHIPMENT_CANCELLED"
@@ -47,6 +48,7 @@ CRM_STATUS_EVENTS = {
 	CRM_STATUS_FINANCE_REJECTED: "Sales Order Rejected",
 	CRM_STATUS_CONFIRMED_DEPOSIT_PUSH_PRODUCTION: "Confirmed Deposit Push Production",
 	CRM_STATUS_IN_PRODUCTION: "In Production",
+	CRM_STATUS_FINANCE_APPROVED: "Finance Approved",
 	CRM_STATUS_SHIPMENT_CREATED: "Shipment Created",
 	CRM_STATUS_SHIPMENT_CANCELLED: "Shipment Cancelled",
 	CRM_STATUS_PENDING_SHIPMENT: "Final Payment Reconciled",
@@ -92,7 +94,8 @@ def protect_crm_order_identity(doc, method=None):
 	if not previous or not (previous.get("custom_crm_order_no") or doc.get("custom_crm_order_no")):
 		return
 	for field in ("custom_crm_order_no", "custom_crm_order_id", "custom_crm_approval_round",
-		"custom_crm_revision", "custom_crm_production_started", "custom_crm_production_milestone"):
+		"custom_crm_revision", "custom_crm_production_started", "custom_crm_production_milestone",
+		"custom_crm_finance_approval_state"):
 		if doc.get(field) != previous.get(field):
 			frappe.throw(_("CRM 订单身份与版本只能通过受控接口修改：{0}。").format(field))
 	previous_rows = {row.name: row for row in previous.get("items") or []}
@@ -233,6 +236,8 @@ def push_sales_order_status_to_crm(
 ):
 	if is_paused_crm_shipment_status(external_status):
 		return None
+	if skip_trade_pending_shipment(sales_order, external_status):
+		return None
 	if not is_crm_integration_enabled(sales_order.get("company")):
 		throw_crm_integration_disabled(sales_order.get("company"))
 
@@ -240,11 +245,12 @@ def push_sales_order_status_to_crm(
 	if not external_order_id:
 		frappe.throw(_("缺少 CRM 订单编号，无法推送状态到 CRM。"))
 
-	trace_id = (
-		make_production_progress_trace_id(external_order_id, production_batch_no)
-		if external_status == CRM_STATUS_PRODUCTION_PROGRESS_REPORTED
-		else make_crm_trace_id(sales_order.name, external_status)
-	)
+	if external_status == CRM_STATUS_FINANCE_APPROVED:
+		trace_id = make_finance_approved_trace_id(sales_order.name, sales_order.get("custom_crm_approval_round"))
+	elif external_status == CRM_STATUS_PRODUCTION_PROGRESS_REPORTED:
+		trace_id = make_production_progress_trace_id(external_order_id, production_batch_no)
+	else:
+		trace_id = make_crm_trace_id(sales_order.name, external_status)
 	payload = {
 		"sourceSystem": "ERP",
 		"externalStatus": external_status,
@@ -255,6 +261,10 @@ def push_sales_order_status_to_crm(
 		"traceId": trace_id,
 		"attachments": [],
 	}
+	if external_status == CRM_STATUS_FINANCE_APPROVED:
+		payload.pop("attachments")
+		if sales_order.get("custom_crm_order_id"):
+			payload["crmOrderId"] = sales_order.get("custom_crm_order_id")
 	request_url = get_crm_status_api_url()
 	headers = {
 		"Content-Type": "application/json",
@@ -284,6 +294,8 @@ def push_sales_order_status_to_crm(
 		)
 		response_payload = parse_crm_response(response)
 		response.raise_for_status()
+		if external_status == CRM_STATUS_FINANCE_APPROVED and isinstance(response_payload, dict) and response_payload.get("success") is False:
+			raise requests.HTTPError("CRM rejected FINANCE_APPROVED in the response body", response=response)
 	except requests.RequestException as exc:
 		if getattr(exc, "response", None) is not None:
 			response = exc.response
@@ -369,6 +381,8 @@ def push_sales_order_status_to_crm_job(
 	sales_order = frappe.get_doc("Sales Order", sales_order_name)
 	if not is_crm_integration_enabled(sales_order.get("company")):
 		return None
+	if skip_trade_pending_shipment(sales_order, external_status):
+		return None
 
 	return push_sales_order_status_payload_to_crm(
 		sales_order=sales_order,
@@ -393,6 +407,8 @@ def push_sales_order_status_payload_to_crm(
 	production_batch_no=None,
 ):
 	if is_paused_crm_shipment_status(external_status):
+		return None
+	if skip_trade_pending_shipment(sales_order, external_status):
 		return None
 	external_order_id = sales_order.get("custom_crm_order_no")
 	if external_status == CRM_STATUS_PRODUCTION_PROGRESS_REPORTED:
@@ -508,6 +524,24 @@ def make_crm_trace_id(sales_order_name, external_status):
 
 	digest = hashlib.sha256(trace_id.encode()).hexdigest()
 	return f"erp-sales-order-{digest}"
+
+
+def make_finance_approved_trace_id(sales_order_name, approval_round):
+	"""Keep trade finance approval retries tied to the ERP order and CRM round."""
+	trace_id = f"finance-approved:{sales_order_name}:{cint(approval_round)}"
+	if len(trace_id) <= CRM_TRACE_ID_MAX_LENGTH:
+		return trace_id
+	return f"finance-approved:{hashlib.sha256(trace_id.encode()).hexdigest()}"
+
+
+def skip_trade_pending_shipment(sales_order, external_status):
+	"""Trade orders enter CRM pending_shipment on FINANCE_APPROVED, not E5."""
+	if external_status != CRM_STATUS_PENDING_SHIPMENT:
+		return False
+	is_direct = validate_production_route(sales_order) == DIRECT
+	if is_direct and sales_order.get("custom_crm_finance_approval_state") != "ACKNOWLEDGED":
+		frappe.throw(_("贸易款尚未确认 CRM 财务放行；请财务人员核对 CRM 状态并补发放行通知后重试。"))
+	return is_direct
 
 
 def make_production_progress_trace_id(external_order_id, production_batch_no):
@@ -823,6 +857,7 @@ def reject_sales_order(sales_order_name, remark=None):
 
 	if sales_order.get("custom_process_status") != PENDING_DEPOSIT_CONFIRMATION:
 		frappe.throw(_("只有待确认定金的销售订单可以驳回。"))
+	assert_finance_approval_not_attempted(sales_order)
 	if not sales_order.get("custom_crm_order_no"):
 		frappe.throw(_("缺少 CRM 订单编号，无法推送状态到 CRM。"))
 
@@ -884,6 +919,38 @@ def prevent_deposit_confirmation_processing_cancel(doc, method=None):
 
 	if doc.get("custom_process_status") == DEPOSIT_CONFIRMATION_PROCESSING:
 		frappe.throw(_("定金确认正在后台同步 CRM 和 MES，暂时不能取消销售订单。"))
+	assert_finance_approval_not_attempted(doc)
+
+
+def assert_finance_approval_not_attempted(sales_order):
+	if reason := finance_approval_cancel_reason(sales_order):
+		frappe.throw(reason)
+
+
+def finance_approval_cancel_reason(sales_order):
+	if sales_order.get("custom_crm_finance_approval_state") == "ATTEMPTED":
+		return _("贸易款财务放行回执尚未确认；请先重试放行并核对 CRM 状态，暂不能驳回或取消订单。")
+	return ""
+
+
+def assert_finance_approval_schema():
+	if not frappe.db.has_column("Sales Order", "custom_crm_finance_approval_state"):
+		frappe.throw(_("CRM finance approval schema is outdated. Please migrate the site before financial release."))
+
+
+def confirm_trade_finance_approval(sales_order):
+	"""Persist an unknown result before HTTP; retry with the same ERP order trace."""
+	assert_finance_approval_schema()
+	if sales_order.get("custom_crm_finance_approval_state") == "ACKNOWLEDGED":
+		return False
+	if sales_order.get("custom_crm_finance_approval_state") != "ATTEMPTED":
+		sales_order.db_set("custom_crm_finance_approval_state", "ATTEMPTED", update_modified=True)
+		sales_order.custom_crm_finance_approval_state = "ATTEMPTED"
+		frappe.db.commit()
+	push_sales_order_status_to_crm(sales_order, CRM_STATUS_FINANCE_APPROVED, remark=_("财务审核通过"))
+	sales_order.db_set("custom_crm_finance_approval_state", "ACKNOWLEDGED", update_modified=True)
+	sales_order.custom_crm_finance_approval_state = "ACKNOWLEDGED"
+	return True
 
 
 @frappe.whitelist(methods=["POST"])
@@ -922,7 +989,9 @@ def confirm_deposit_and_push_to_mes(sales_order_name):
 		frappe.throw(review["reason"])
 	route = validate_production_route(sales_order)
 	assert_order_route_schema()
-	if route != DIRECT:
+	if route == DIRECT:
+		assert_finance_approval_schema()
+	else:
 		validate_mes_sync_available(sales_order)
 	audit = create_crm_log(direction="Outbound", event=AUDIT_EVENT, status="Pending",
 		reference_doctype="Sales Order", reference_name=sales_order.name, source="Desk",
@@ -1026,7 +1095,11 @@ def run_confirm_deposit_sync(sales_order):
 		frappe.throw(_("销售订单必须提交后才能确认定金。"))
 
 	process_status = sales_order.get("custom_process_status")
-	if process_status == PENDING_PRODUCTION or (process_status == PENDING_FINAL_PAYMENT and is_direct_fulfillment_order(sales_order)):
+	idempotent = process_status == PENDING_PRODUCTION
+	if process_status == PENDING_FINAL_PAYMENT and is_direct_fulfillment_order(sales_order):
+		skip_trade_pending_shipment(sales_order, CRM_STATUS_PENDING_SHIPMENT)
+		idempotent = True
+	if idempotent:
 		return {
 			"status": "success",
 			"message": _("销售订单已经完成定金确认同步。"),
@@ -1042,23 +1115,26 @@ def run_confirm_deposit_sync(sales_order):
 	# Reject mixed orders before any external CRM or MES side effect.
 	route = validate_production_route(sales_order)
 	assert_order_route_schema()
-	push_sales_order_status_to_crm(sales_order, CRM_STATUS_CONFIRMED_DEPOSIT_PUSH_PRODUCTION)
-	if not cint(sales_order.get("custom_crm_production_started")):
-		# An E3 timeout may mean CRM accepted the event; persist the attempt first.
-		sales_order.db_set("custom_crm_production_milestone", "ATTEMPTED", update_modified=True)
-		sales_order.custom_crm_production_milestone = "ATTEMPTED"
-		frappe.db.commit()
-	push_sales_order_status_to_crm(sales_order, CRM_STATUS_IN_PRODUCTION)
-	if not cint(sales_order.get("custom_crm_production_started")):
-		sales_order.db_set({"custom_crm_production_started": 1,
-			"custom_crm_production_milestone": "REACHED"}, update_modified=True)
-		sales_order.custom_crm_production_started = 1
-		sales_order.custom_crm_production_milestone = "REACHED"
-		frappe.db.commit()
 	if route == DIRECT:
+		# A timed-out CRM call may have succeeded remotely. Keep C2/R2 and
+		# cancellation locked until the same traceId is acknowledged.
+		confirm_trade_finance_approval(sales_order)
 		process_status = PENDING_FINAL_PAYMENT
 		message = _("财务放行完成，无需 MES 生产，请核销尾款后放行发货。")
 	else:
+		push_sales_order_status_to_crm(sales_order, CRM_STATUS_CONFIRMED_DEPOSIT_PUSH_PRODUCTION)
+		if not cint(sales_order.get("custom_crm_production_started")):
+			# An E3 timeout may mean CRM accepted the event; persist the attempt first.
+			sales_order.db_set("custom_crm_production_milestone", "ATTEMPTED", update_modified=True)
+			sales_order.custom_crm_production_milestone = "ATTEMPTED"
+			frappe.db.commit()
+		push_sales_order_status_to_crm(sales_order, CRM_STATUS_IN_PRODUCTION)
+		if not cint(sales_order.get("custom_crm_production_started")):
+			sales_order.db_set({"custom_crm_production_started": 1,
+				"custom_crm_production_milestone": "REACHED"}, update_modified=True)
+			sales_order.custom_crm_production_started = 1
+			sales_order.custom_crm_production_milestone = "REACHED"
+			frappe.db.commit()
 		response = push_sales_order_to_mes(sales_order, resolved_route=route)
 		if not isinstance(response, dict) or response.get("success") is not True:
 			frappe.throw(_("MES did not confirm order acceptance; financial release was not completed."))
@@ -1074,6 +1150,41 @@ def run_confirm_deposit_sync(sales_order):
 		"fulfillment_route": route,
 		"timestamp": now(),
 	}
+
+
+@frappe.whitelist(methods=["POST"])
+def retry_trade_finance_approval(sales_order_name):
+	"""Explicitly reconcile pre-existing DIRECT orders before E5 is suppressed."""
+	from crm_integration.crm_integration.finance_release import RELEASED_STATES, has_release_permission
+	from crm_integration.crm_integration.production_routing import get_effective_production_route
+
+	if not has_release_permission():
+		frappe.throw(_("未获得生产放行权限；管理员可在角色权限管理中配置。"), frappe.PermissionError)
+	initial = frappe.get_doc("Sales Order", sales_order_name)
+	initial.check_permission("read")
+	with crm_sales_order_creation_lock(initial.get("custom_crm_order_no")):
+		frappe.db.get_value("Sales Order", sales_order_name, "name", for_update=True)
+		sales_order = frappe.get_doc("Sales Order", sales_order_name)
+		sales_order.check_permission("read")
+		if not is_crm_integration_enabled(sales_order.get("company")):
+			throw_crm_integration_disabled(sales_order.get("company"))
+		assert_sales_order_not_closed(sales_order)
+		if sales_order.docstatus != 1 or sales_order.get("custom_process_status") not in RELEASED_STATES:
+			frappe.throw(_("仅已完成财务放行的有效贸易款订单可补发 FINANCE_APPROVED。"))
+		if get_effective_production_route(sales_order) != DIRECT:
+			frappe.throw(_("仅明确为直接履约路径的贸易款订单可补发 FINANCE_APPROVED。"))
+		try:
+			sent = confirm_trade_finance_approval(sales_order)
+		except Exception as exc:
+			failure = getattr(exc, "crm_status_failure", None)
+			if failure:
+				# The HTTP log was rolled back; keep the sanitized failure for retry.
+				frappe.db.rollback()
+				create_crm_log(**failure)
+				frappe.db.commit()
+			raise
+	return {"status": "success", "erp_order_id": sales_order.name,
+		"finance_approval_state": "ACKNOWLEDGED", "idempotent_replay": not sent}
 
 
 @frappe.whitelist(methods=["POST"])
@@ -1093,16 +1204,18 @@ def reconcile_final_payment(sales_order_name):
 
 	grand_total = flt(sales_order.get("grand_total"), sales_order.precision("grand_total"))
 	advance_paid = flt(sales_order.get("advance_paid"), sales_order.precision("advance_paid"))
+	skip_e5 = skip_trade_pending_shipment(sales_order, CRM_STATUS_PENDING_SHIPMENT)
 
 	set_process_status(sales_order, DELIVERABLE)
 	frappe.logger().info(f"Sales Order {sales_order_name} final payment reconciled")
-	enqueue_sales_order_status_to_crm(
-		sales_order_name=sales_order.name,
-		external_status=CRM_STATUS_PENDING_SHIPMENT,
-		triggered_status=DELIVERABLE,
-		trigger_event="final_payment_reconciled",
-		remark=_("尾款已核销，销售订单已放行发货。"),
-	)
+	if not skip_e5:
+		enqueue_sales_order_status_to_crm(
+			sales_order_name=sales_order.name,
+			external_status=CRM_STATUS_PENDING_SHIPMENT,
+			triggered_status=DELIVERABLE,
+			trigger_event="final_payment_reconciled",
+			remark=_("尾款已核销，销售订单已放行发货。"),
+		)
 	enqueue_mes_sales_order_status_callback(
 		sales_order.name,
 		triggered_status=DELIVERABLE,

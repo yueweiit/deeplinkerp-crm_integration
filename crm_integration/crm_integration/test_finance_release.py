@@ -48,6 +48,13 @@ class TestFinanceRelease(UnitTestCase):
 		self.assertFalse(review["can_release"])
 		self.assertTrue(review["can_reject"])
 
+	def test_unknown_trade_finance_callback_hides_reject_action(self):
+		self.doc.custom_crm_finance_approval_state = "ATTEMPTED"
+		with patch.object(frappe, "has_permission", return_value=True):
+			result = release.review_order(self.doc)
+		self.assertFalse(result["can_reject"])
+		self.assertTrue(result["reject_reason"])
+
 	def test_sales_order_edit_permission_does_not_grant_release(self):
 		with patch.object(release, "has_release_permission", return_value=False):
 			self.assertFalse(release.review_order(self.doc)["can_release"])

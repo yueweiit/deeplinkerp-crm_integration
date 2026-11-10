@@ -74,7 +74,9 @@ class TestCRMStatusFailureRollback(TestCase):
 		for log in self.logs:
 			self.assertEqual(log["status"], "Failed")
 			self.assertEqual(log["external_status"], failed_status)
-			self.assertEqual(log["trace_id"], flow.make_crm_trace_id(self.order.name, failed_status))
+			expected_trace_id = (flow.make_finance_approved_trace_id(self.order.name, 0)
+				if failed_status == flow.CRM_STATUS_FINANCE_APPROVED else flow.make_crm_trace_id(self.order.name, failed_status))
+			self.assertEqual(log["trace_id"], expected_trace_id)
 			self.assertEqual(log["request_url"], "https://crm.invalid/status")
 		for secret in (self.secret, "privatepass", "query-secret", "private remark"):
 			self.assertNotIn(secret, str(self.logs))
@@ -97,6 +99,31 @@ class TestCRMStatusFailureRollback(TestCase):
 	def test_e3_failure_retains_the_failing_event_instead_of_e2_success(self):
 		self.run_job(flow.CRM_STATUS_IN_PRODUCTION, [self.response(200, {"success": True}), self.response()])
 		self.assertEqual(self.logs[0]["event"], "In Production")
+
+	def test_trade_finance_approval_failure_retains_new_event_and_stable_trace(self):
+		self.run_job(flow.CRM_STATUS_FINANCE_APPROVED, [self.response()])
+		self.assertEqual(self.logs[0]["event"], "Finance Approved")
+		self.assertEqual(self.logs[0]["request_payload"]["crmApprovalRound"], 0)
+
+	def test_trade_finance_approval_http_200_business_rejection_is_failure(self):
+		self.run_job(flow.CRM_STATUS_FINANCE_APPROVED,
+			[self.response(200, {"success": False, "errorCode": "INVALID_STATE"})])
+		self.assertEqual(self.logs[0]["http_status_code"], 200)
+		self.assertEqual(self.logs[0]["response_payload"]["errorCode"], "INVALID_STATE")
+		self.assertEqual(self.logs[0]["status"], "Failed")
+
+	def test_trade_finance_approval_payload_includes_known_crm_identity(self):
+		self.order.custom_crm_order_id = "CRM-ID-1"
+		self.order.custom_crm_approval_round = 2
+		with patch.object(flow.requests, "post", return_value=self.response(200, {"success": True})) as post:
+			flow.push_sales_order_status_to_crm(self.order, flow.CRM_STATUS_FINANCE_APPROVED, remark="财务审核通过")
+		payload = post.call_args.kwargs["json"]
+		self.assertEqual(payload["crmOrderId"], "CRM-ID-1")
+		self.assertEqual(payload["externalStatus"], "FINANCE_APPROVED")
+		self.assertEqual(payload["traceId"], "finance-approved:SO-LOG-TEST:2")
+		self.assertEqual(payload["remark"], "财务审核通过")
+		self.assertNotIn("attachments", payload)
+		self.assertEqual(self.logs[0]["request_payload"]["crmOrderId"], "CRM-ID-1")
 
 	def test_timeout_without_response_records_zero_and_exception_type(self):
 		self.run_job(flow.CRM_STATUS_CONFIRMED_DEPOSIT_PUSH_PRODUCTION,

@@ -26,6 +26,7 @@ from crm_integration.crm_integration.order_revision import (
 	linked_facts,
 	lock_expected_order,
 	order_names,
+	production_milestone,
 	normalize_revision_date,
 	run_operation,
 	sync_header_delivery_date,
@@ -192,6 +193,34 @@ class TestCRMOrderRevision(UnitTestCase):
 		with patch("crm_integration.crm_integration.order_revision.linked_facts", return_value=facts):
 			later_state = describe_order(doc, [])
 		self.assertIsNone(later_state["productionMilestone"]["reached"])
+
+	def test_r1_reports_trade_order_as_not_produced_after_finance_approval(self):
+		doc = MagicMock(company="Company", status="Submitted",
+			custom_process_status="Pending Final Payment",
+			items=[frappe._dict(delivered_qty=0)])
+		doc.get.side_effect = lambda field: {
+			"custom_crm_production_milestone": "NOT_STARTED",
+			"custom_crm_fulfillment_route": "DIRECT",
+		}.get(field)
+		facts = {"deliveryNotes": [], "stockEntries": [], "mesPush": {"lastPushStatus": None},
+			"workOrders": [], "productionPlans": [], "advancePaid": 0,
+			"paymentEntries": [], "salesInvoices": []}
+		with patch("crm_integration.crm_integration.order_revision.is_crm_integration_enabled", return_value=True):
+			self.assertEqual(eligibility(doc, facts)[0], "STAGE_LOCKED")
+		self.assertEqual(production_milestone(doc, facts),
+			{"reached": False, "source": "ERP direct fulfillment", "time": None})
+
+	def test_unconfirmed_trade_finance_callback_blocks_revision_after_status_restored(self):
+		doc = MagicMock(company="Company", status="Submitted",
+			custom_process_status="Pending Deposit Confirmation",
+			items=[frappe._dict(delivered_qty=0)])
+		doc.get.side_effect = lambda field: {
+			"custom_crm_production_milestone": "NOT_STARTED",
+			"custom_crm_finance_approval_state": "ATTEMPTED",
+		}.get(field)
+		facts = {"deliveryNotes": [], "stockEntries": [], "mesPush": {"lastPushStatus": None}}
+		with patch("crm_integration.crm_integration.order_revision.is_crm_integration_enabled", return_value=True):
+			self.assertEqual(eligibility(doc, facts)[0], "FINANCE_APPROVAL_UNKNOWN")
 
 	def test_r1_unknown_production_blocks_edit_but_allows_revoke(self):
 		doc = MagicMock(company="Company", status="Submitted",

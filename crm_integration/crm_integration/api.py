@@ -778,8 +778,9 @@ def validate_sales_order_payload(payload):
 
 	if payload.get("docstatus"):
 		frappe.throw(_("请求体不能直接传 docstatus，请由接口自动提交销售订单。"))
-	if {"custom_crm_production_started", "custom_crm_production_milestone"} & set(payload):
-		frappe.throw(_("生产里程碑由 ERP 管理，建单请求不能直接设置。"))
+	if {"custom_crm_production_started", "custom_crm_production_milestone",
+		"custom_crm_finance_approval_state"} & set(payload):
+		frappe.throw(_("CRM 放行与生产状态由 ERP 管理，建单请求不能直接设置。"))
 
 	if not payload.get("customer"):
 		frappe.throw(_("缺少必填字段：customer"))
