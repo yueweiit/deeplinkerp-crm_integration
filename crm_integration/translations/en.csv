@@ -399,3 +399,5 @@ ERP 已尝试向 CRM 回传财务放行，结果尚未确认，不能修订订�
 贸易款尚未确认 CRM 财务放行；请财务人员核对 CRM 状态并补发放行通知后重试。,"CRM finance approval is unconfirmed for this trade order. Ask Finance to check CRM and resend the approval before retrying."
 仅已完成财务放行的有效贸易款订单可补发 FINANCE_APPROVED。,FINANCE_APPROVED can only be retried for an active trade order that has completed financial release.
 仅明确为直接履约路径的贸易款订单可补发 FINANCE_APPROVED。,FINANCE_APPROVED can only be retried for a trade order with a recorded direct fulfillment route.
+Item field {0} is unavailable. Synchronize the site custom fields before retrying.,Item field {0} is unavailable. Synchronize the site custom fields before retrying.
+Item field {0} must be a string or null.,Item field {0} must be a string or null.

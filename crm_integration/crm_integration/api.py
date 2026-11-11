@@ -989,6 +989,16 @@ def get_crm_order_operation_result(operation_id=None, crm_order_no=None):
 # Item Sync APIs
 # ---------------------------------------------------------------------------
 
+CRM_ITEM_CUSTOM_FIELDS = (
+	"custom_dpci",
+	"custom_external_code",
+	"custom_short_name",
+	"custom_sku",
+	"custom_specifications",
+	"custom_item_short_name",
+	"custom_mnemonic_code",
+)
+
 
 def _validate_item_group(item_group):
 	"""验证物料组存在且为叶子节点"""
@@ -1080,6 +1090,13 @@ def create_item_from_crm(item_data=None):
 	_validate_item_group(payload["item_group"])
 	_validate_uom(payload["stock_uom"])
 
+	custom_fields = {field: payload[field] for field in CRM_ITEM_CUSTOM_FIELDS if field in payload}
+	if custom_fields:
+		meta = frappe.get_meta("Item")
+		for field in custom_fields:
+			if not meta.has_field(field) or not frappe.db.has_column("Item", field):
+				frappe.throw(_("Item field {0} is unavailable. Synchronize the site custom fields before retrying.").format(field))
+
 	# 记录日志
 	crm_log = create_crm_log(
 		direction="Inbound",
@@ -1097,7 +1114,7 @@ def create_item_from_crm(item_data=None):
 			"item_name": payload["item_name"],
 			"item_group": payload["item_group"],
 			"stock_uom": payload["stock_uom"],
-			"custom_specifications": payload.get("custom_specifications"),
+			**custom_fields,
 		})
 		doc.insert(ignore_permissions=True)
 
@@ -1145,3 +1162,7 @@ def validate_item_payload(payload):
 
 	if not payload.get("stock_uom"):
 		frappe.throw(_("缺少必填字段：stock_uom"))
+
+	for field in CRM_ITEM_CUSTOM_FIELDS:
+		if payload.get(field) is not None and not isinstance(payload[field], str):
+			frappe.throw(_("Item field {0} must be a string or null.").format(field))
