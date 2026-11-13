@@ -192,3 +192,13 @@ Authentication required.,请先完成身份认证。
 Field {0} must be a list of JSON objects.,字段 {0} 必须是 JSON 对象列表。
 Item code must be a non-empty string.,物料编码必须是非空字符串。
 Field {0} is unavailable on {1}. Check the field name and synchronize the site fields before retrying.,字段 {0} 在 {1} 中不可用，请核对字段名称并同步站点字段后重试。
+No item group fields were provided.,未提供要修改的物料组字段。
+The root item group cannot be modified through this API.,不能通过此接口修改根物料组。
+An item group cannot be moved under itself or its descendants.,物料组不能移动到自身或其后代节点下。
+Field {0} must be a non-empty string.,字段 {0} 必须是非空字符串。
+Field {0} is managed by the item group tree.,字段 {0} 由物料组树结构自动维护。
+Field {0} must be 0 or 1.,字段 {0} 必须为 0 或 1。
+Parent item group {0} must be a group node.,上级物料组 {0} 必须是分组节点。
+请求体必须是 JSON 对象。,请求体必须是 JSON 对象。
+物料组不存在：{0},物料组不存在：{0}
+Item group {0} has child nodes and cannot be converted to a leaf.,物料组 {0} 存在子节点，不能改为叶子组。

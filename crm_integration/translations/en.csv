@@ -403,3 +403,11 @@ Authentication required.,Authentication required.
 Field {0} must be a list of JSON objects.,Field {0} must be a list of JSON objects.
 Item code must be a non-empty string.,Item code must be a non-empty string.
 Field {0} is unavailable on {1}. Check the field name and synchronize the site fields before retrying.,Field {0} is unavailable on {1}. Check the field name and synchronize the site fields before retrying.
+No item group fields were provided.,No item group fields were provided.
+The root item group cannot be modified through this API.,The root item group cannot be modified through this API.
+An item group cannot be moved under itself or its descendants.,An item group cannot be moved under itself or its descendants.
+Field {0} must be a non-empty string.,Field {0} must be a non-empty string.
+Field {0} is managed by the item group tree.,Field {0} is managed by the item group tree.
+Field {0} must be 0 or 1.,Field {0} must be 0 or 1.
+Parent item group {0} must be a group node.,Parent item group {0} must be a group node.
+Item group {0} has child nodes and cannot be converted to a leaf.,Item group {0} has child nodes and cannot be converted to a leaf.

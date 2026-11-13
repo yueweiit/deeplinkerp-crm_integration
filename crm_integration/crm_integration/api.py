@@ -994,6 +994,12 @@ def _validate_authenticated_item_api_user():
 		frappe.throw(_("Authentication required."), frappe.AuthenticationError)
 
 
+def _item_api_flag(value, fieldname):
+	if not ((isinstance(value, (bool, int)) and value in (0, 1)) or value in ("0", "1")):
+		frappe.throw(_("Field {0} must be 0 or 1.").format(fieldname))
+	return int(value)
+
+
 def _validate_item_group(item_group):
 	"""验证物料组存在且为叶子节点"""
 	if not item_group:
@@ -1032,6 +1038,140 @@ def get_item_group_list(keyword=None):
 		limit_page_length=100,
 	)
 	return {"status": "success", "data": groups}
+
+
+@frappe.whitelist(methods=["POST"])
+def create_item_group_from_crm(group_data=None):
+	"""允许已认证账号新增物料组，已有同名分组不覆盖。"""
+	_validate_authenticated_item_api_user()
+	payload = _get_item_group_payload(group_data)
+	payload["item_group_name"] = _item_group_string(payload.get("item_group_name"), "item_group_name")
+	if frappe.db.exists("Item Group", payload["item_group_name"]):
+		return _item_group_response(frappe.get_doc("Item Group", payload["item_group_name"]), "exists")
+
+	if "parent_item_group" not in payload:
+		from frappe.utils.nestedset import get_root_of
+
+		payload["parent_item_group"] = get_root_of("Item Group")
+	data = _get_item_group_document_data(payload)
+	_validate_item_group_parent(data["parent_item_group"])
+	doc = frappe.get_doc(data)
+	return _save_item_group_from_crm(doc, payload, create=True)
+
+
+@frappe.whitelist(methods=["POST"])
+def update_item_group_from_crm(item_group, group_data=None):
+	"""按现有主键修改物料组；更名通过原生 rename 同步关联引用。"""
+	_validate_authenticated_item_api_user()
+	item_group = _item_group_string(item_group, "item_group")
+	payload = _get_item_group_payload(group_data)
+	payload.pop("item_group", None)
+	data = _get_item_group_document_data(payload)
+	data.pop("doctype")
+	if not data:
+		frappe.throw(_("No item group fields were provided."))
+	doc = frappe.get_doc("Item Group", item_group, for_update=True)
+	if not doc.parent_item_group:
+		frappe.throw(_("The root item group cannot be modified through this API."))
+	# 锁定读取得当前树边界，避免原生子节点快照查询漏掉并发新增的分类。
+	if data.get("is_group", doc.is_group) == 0 and doc.rgt > doc.lft + 1:
+		frappe.throw(_("Item group {0} has child nodes and cannot be converted to a leaf.").format(doc.name))
+	parent = _validate_item_group_parent(data.get("parent_item_group", doc.parent_item_group))
+	if doc.lft <= parent.lft <= doc.rgt:
+		frappe.throw(_("An item group cannot be moved under itself or its descendants."))
+	new_name = data.get("item_group_name", doc.name)
+	doc.update(data)
+	return _save_item_group_from_crm(doc, payload, create=False, new_name=new_name)
+
+
+def _get_item_group_payload(group_data):
+	if isinstance(group_data, str):
+		payload = frappe.parse_json(group_data)
+	elif group_data is not None:
+		payload = group_data
+	elif frappe.request and frappe.request.is_json:
+		payload = frappe.request.get_json(silent=True)
+	else:
+		payload = dict(frappe.form_dict)
+	if not isinstance(payload, dict):
+		frappe.throw(_("请求体必须是 JSON 对象。"))
+	return payload.copy()
+
+
+def _item_group_string(value, fieldname):
+	if not isinstance(value, str) or not value.strip():
+		frappe.throw(_("Field {0} must be a non-empty string.").format(fieldname))
+	return value.strip()
+
+
+def _get_item_group_document_data(payload):
+	payload = payload.copy()
+	for fieldname in ("lft", "rgt", "old_parent"):
+		if fieldname in payload:
+			frappe.throw(_("Field {0} is managed by the item group tree.").format(fieldname))
+	for fieldname in ("item_group_name", "parent_item_group"):
+		if fieldname in payload:
+			payload[fieldname] = _item_group_string(payload[fieldname], fieldname)
+	if "is_group" in payload:
+		payload["is_group"] = _item_api_flag(payload["is_group"], "is_group")
+	return _get_item_document_data(payload, "Item Group")
+
+
+def _validate_item_group_parent(parent_item_group):
+	parent_item_group = _item_group_string(parent_item_group, "parent_item_group")
+	parent = frappe.db.get_value(
+		"Item Group", parent_item_group, ["name", "is_group", "lft", "rgt"], as_dict=True, for_update=True,
+	)
+	if not parent:
+		frappe.throw(_("物料组不存在：{0}").format(parent_item_group))
+	if not parent.is_group:
+		frappe.throw(_("Parent item group {0} must be a group node.").format(parent_item_group))
+	return parent
+
+
+def _item_group_response(doc, status="success"):
+	return {
+		"status": status,
+		"name": doc.name,
+		"item_group_name": doc.item_group_name,
+		"parent_item_group": doc.parent_item_group,
+		"is_group": doc.is_group,
+	}
+
+
+def _save_item_group_from_crm(doc, payload, *, create, new_name=None):
+	crm_log = create_crm_log(
+		direction="Inbound",
+		event="Item Group Create From CRM" if create else "Item Group Update From CRM",
+		status="Pending", source="CRM", request_url=get_request_url(),
+		request_payload=payload if create else {"item_group": doc.name, "group_data": payload},
+	)
+	try:
+		if create:
+			doc.insert(ignore_permissions=True)
+		else:
+			doc.save(ignore_permissions=True)
+			if new_name != doc.name:
+				from frappe.model.rename_doc import rename_doc
+
+				new_name = rename_doc(
+					"Item Group", doc.name, new_name, ignore_permissions=True,
+					merge=False, show_alert=False, rebuild_search=False,
+				)
+				doc = frappe.get_doc("Item Group", new_name)
+				frappe.enqueue(
+					"frappe.utils.global_search.rebuild_for_doctype",
+					doctype="Item Group", enqueue_after_commit=True,
+				)
+		response = _item_group_response(doc)
+		update_crm_log(
+			crm_log, status="Success", reference_doctype="Item Group", reference_name=doc.name,
+			response_payload=response, http_status_code=200,
+		)
+		return response
+	except Exception:
+		update_crm_log(crm_log, status="Failed", error_message=frappe.get_traceback(), http_status_code=500)
+		raise
 
 
 @frappe.whitelist()

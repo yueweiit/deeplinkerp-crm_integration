@@ -526,3 +526,11 @@ Authentication required.,Se requiere autenticación.
 Field {0} must be a list of JSON objects.,El campo {0} debe ser una lista de objetos JSON.
 Item code must be a non-empty string.,El código del artículo debe ser una cadena de texto no vacía.
 Field {0} is unavailable on {1}. Check the field name and synchronize the site fields before retrying.,El campo {0} no está disponible en {1}. Compruebe el nombre del campo y sincronice los campos del sitio antes de volver a intentarlo.
+No item group fields were provided.,No se proporcionaron campos del grupo de artículos para modificar.
+The root item group cannot be modified through this API.,El grupo raíz de artículos no se puede modificar mediante esta API.
+An item group cannot be moved under itself or its descendants.,Un grupo de artículos no se puede mover debajo de sí mismo ni de sus descendientes.
+Field {0} must be a non-empty string.,El campo {0} debe ser una cadena de texto no vacía.
+Field {0} is managed by the item group tree.,El campo {0} lo gestiona automáticamente el árbol de grupos de artículos.
+Field {0} must be 0 or 1.,El campo {0} debe ser 0 o 1.
+Parent item group {0} must be a group node.,El grupo de artículos superior {0} debe ser un nodo de grupo.
+Item group {0} has child nodes and cannot be converted to a leaf.,El grupo de artículos {0} tiene nodos secundarios y no se puede convertir en un nodo hoja.
