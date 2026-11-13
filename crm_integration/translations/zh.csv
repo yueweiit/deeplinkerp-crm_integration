@@ -202,3 +202,5 @@ Parent item group {0} must be a group node.,上级物料组 {0} 必须是分组�
 请求体必须是 JSON 对象。,请求体必须是 JSON 对象。
 物料组不存在：{0},物料组不存在：{0}
 Item group {0} has child nodes and cannot be converted to a leaf.,物料组 {0} 存在子节点，不能改为叶子组。
+Field {0} must be a string.,字段 {0} 必须是字符串。
+Field {0} must be an integer between 1 and {1}.,字段 {0} 必须是 1 到 {1} 之间的整数。

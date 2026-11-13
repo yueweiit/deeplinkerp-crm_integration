@@ -534,3 +534,5 @@ Field {0} is managed by the item group tree.,El campo {0} lo gestiona automátic
 Field {0} must be 0 or 1.,El campo {0} debe ser 0 o 1.
 Parent item group {0} must be a group node.,El grupo de artículos superior {0} debe ser un nodo de grupo.
 Item group {0} has child nodes and cannot be converted to a leaf.,El grupo de artículos {0} tiene nodos secundarios y no se puede convertir en un nodo hoja.
+Field {0} must be a string.,El campo {0} debe ser una cadena de texto.
+Field {0} must be an integer between 1 and {1}.,El campo {0} debe ser un número entero entre 1 y {1}.

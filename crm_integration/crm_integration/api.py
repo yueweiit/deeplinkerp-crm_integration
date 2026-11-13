@@ -994,10 +994,108 @@ def _validate_authenticated_item_api_user():
 		frappe.throw(_("Authentication required."), frappe.AuthenticationError)
 
 
+@frappe.whitelist(methods=["GET", "POST"])
+def query_items(item_code=None, keyword=None, item_group=None, disabled=None, page=1, page_size=20):
+	"""已认证账号分页查询物料；按编码精确查询时返回完整文档和子表。"""
+	_validate_authenticated_item_api_user()
+	filters = {}
+	item_code = _item_query_text(item_code, "item_code")
+	item_group = _item_query_text(item_group, "item_group")
+	if item_code is not None:
+		filters["name"] = item_code
+	if item_group is not None:
+		filters["item_group"] = item_group
+	if disabled is not None:
+		filters["disabled"] = _item_api_flag(disabled, "disabled")
+	fields = (
+		"name", "item_code", "item_name", "item_group", "stock_uom", "description", "brand", "disabled", "image",
+		"custom_dpci", "custom_external_code", "custom_short_name", "custom_sku", "custom_specifications",
+		"custom_item_short_name", "custom_mnemonic_code", "custom_item_classification",
+		"owner", "creation", "modified", "modified_by",
+	)
+	search_fields = (
+		"name", "item_code", "item_name", "custom_dpci", "custom_external_code", "custom_sku",
+		"custom_short_name", "custom_item_short_name", "custom_mnemonic_code",
+	)
+	return _query_item_master(
+		"Item", filters, fields, search_fields, keyword, page, page_size,
+		detail=item_code is not None, order_by="name asc",
+	)
+
+
+@frappe.whitelist(methods=["GET", "POST"])
+def query_item_groups(item_group=None, keyword=None, parent_item_group=None, is_group=None, page=1, page_size=20):
+	"""已认证账号分页查询全部类型物料组；按主键查询时返回完整详情。"""
+	_validate_authenticated_item_api_user()
+	filters = {}
+	item_group = _item_query_text(item_group, "item_group")
+	parent_item_group = _item_query_text(parent_item_group, "parent_item_group", allow_empty=True)
+	if item_group is not None:
+		filters["name"] = item_group
+	if parent_item_group is not None:
+		filters["parent_item_group"] = ["is", "not set"] if parent_item_group == "" else parent_item_group
+	if is_group is not None:
+		filters["is_group"] = _item_api_flag(is_group, "is_group")
+	fields = (
+		"name", "item_group_name", "parent_item_group", "is_group", "image", "lft", "rgt",
+		"owner", "creation", "modified", "modified_by",
+	)
+	return _query_item_master(
+		"Item Group", filters, fields, ("name", "item_group_name"), keyword, page, page_size,
+		detail=item_group is not None, order_by="lft asc, name asc",
+	)
+
+
+def _item_query_text(value, fieldname, *, allow_empty=False):
+	if value is None:
+		return None
+	if not isinstance(value, str):
+		frappe.throw(_("Field {0} must be a string.").format(fieldname))
+	if not allow_empty and not value.strip():
+		frappe.throw(_("Field {0} must be a non-empty string.").format(fieldname))
+	return value.strip()
+
+
 def _item_api_flag(value, fieldname):
 	if not ((isinstance(value, (bool, int)) and value in (0, 1)) or value in ("0", "1")):
 		frappe.throw(_("Field {0} must be 0 or 1.").format(fieldname))
 	return int(value)
+
+
+def _item_query_integer(value, fieldname, maximum):
+	if isinstance(value, str) and value.strip().isascii() and value.strip().isdigit():
+		try:
+			value = int(value.strip())
+		except ValueError:
+			value = None
+	if type(value) is not int or not 1 <= value <= maximum:
+		frappe.throw(_("Field {0} must be an integer between 1 and {1}.").format(fieldname, maximum))
+	return value
+
+
+def _query_item_master(doctype, filters, fields, search_fields, keyword, page, page_size, *, detail, order_by):
+	page = _item_query_integer(page, "page", 2_147_483_647)
+	page_size = _item_query_integer(page_size, "page_size", 100)
+	keyword = _item_query_text(keyword, "keyword", allow_empty=True)
+	meta = frappe.get_meta(doctype)
+	fields = [
+		field for field in fields
+		if (field in frappe.model.default_fields or meta.has_field(field)) and frappe.db.has_column(doctype, field)
+	]
+	or_filters = {field: ["like", f"%{keyword}%"] for field in search_fields if keyword and field in fields}
+	rows = frappe.get_all(
+		doctype, filters=filters, or_filters=or_filters, fields=fields, order_by=order_by,
+		limit_start=(page - 1) * page_size, limit_page_length=page_size + 1,
+	)
+	has_more = len(rows) > page_size
+	data = rows[:page_size]
+	if detail:
+		# 精确主键条件至多匹配一条；列表查询不逐条加载文档，避免 N+1。
+		data = [frappe.get_doc(doctype, row["name"]).as_dict(no_private_properties=True) for row in data]
+	return {
+		"status": "success", "data": data, "page": page, "page_size": page_size,
+		"has_more": has_more, "next_page": page + 1 if has_more else None,
+	}
 
 
 def _validate_item_group(item_group):

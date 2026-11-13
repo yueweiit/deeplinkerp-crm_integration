@@ -411,3 +411,5 @@ Field {0} is managed by the item group tree.,Field {0} is managed by the item gr
 Field {0} must be 0 or 1.,Field {0} must be 0 or 1.
 Parent item group {0} must be a group node.,Parent item group {0} must be a group node.
 Item group {0} has child nodes and cannot be converted to a leaf.,Item group {0} has child nodes and cannot be converted to a leaf.
+Field {0} must be a string.,Field {0} must be a string.
+Field {0} must be an integer between 1 and {1}.,Field {0} must be an integer between 1 and {1}.
