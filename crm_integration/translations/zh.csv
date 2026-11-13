@@ -188,5 +188,7 @@ ERP 已尝试向 CRM 回传财务放行，结果尚未确认，不能修订订�
 贸易款尚未确认 CRM 财务放行；请财务人员核对 CRM 状态并补发放行通知后重试。,贸易款尚未确认 CRM 财务放行；请财务人员核对 CRM 状态并补发放行通知后重试。
 仅已完成财务放行的有效贸易款订单可补发 FINANCE_APPROVED。,仅已完成财务放行的有效贸易款订单可补发 FINANCE_APPROVED。
 仅明确为直接履约路径的贸易款订单可补发 FINANCE_APPROVED。,仅明确为直接履约路径的贸易款订单可补发 FINANCE_APPROVED。
-Item field {0} is unavailable. Synchronize the site custom fields before retrying.,物料字段 {0} 不可用，请同步站点自定义字段后重试。
-Item field {0} must be a string or null.,物料字段 {0} 必须是字符串或 null。
+Authentication required.,请先完成身份认证。
+Field {0} must be a list of JSON objects.,字段 {0} 必须是 JSON 对象列表。
+Item code must be a non-empty string.,物料编码必须是非空字符串。
+Field {0} is unavailable on {1}. Check the field name and synchronize the site fields before retrying.,字段 {0} 在 {1} 中不可用，请核对字段名称并同步站点字段后重试。

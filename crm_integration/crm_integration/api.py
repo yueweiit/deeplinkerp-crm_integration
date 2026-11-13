@@ -989,15 +989,9 @@ def get_crm_order_operation_result(operation_id=None, crm_order_no=None):
 # Item Sync APIs
 # ---------------------------------------------------------------------------
 
-CRM_ITEM_CUSTOM_FIELDS = (
-	"custom_dpci",
-	"custom_external_code",
-	"custom_short_name",
-	"custom_sku",
-	"custom_specifications",
-	"custom_item_short_name",
-	"custom_mnemonic_code",
-)
+def _validate_authenticated_item_api_user():
+	if not getattr(frappe.session, "user", None) or frappe.session.user == "Guest":
+		frappe.throw(_("Authentication required."), frappe.AuthenticationError)
 
 
 def _validate_item_group(item_group):
@@ -1070,8 +1064,8 @@ def check_item_exists(item_code):
 
 @frappe.whitelist(methods=["POST"])
 def create_item_from_crm(item_data=None):
-	"""从 CRM 创建物料到 ERP。"""
-	validate_crm_api_user()
+	"""允许已认证账号按站点 Item 数据模型创建物料。"""
+	_validate_authenticated_item_api_user()
 	payload = get_request_payload(item_data)
 	validate_item_payload(payload)
 
@@ -1090,12 +1084,7 @@ def create_item_from_crm(item_data=None):
 	_validate_item_group(payload["item_group"])
 	_validate_uom(payload["stock_uom"])
 
-	custom_fields = {field: payload[field] for field in CRM_ITEM_CUSTOM_FIELDS if field in payload}
-	if custom_fields:
-		meta = frappe.get_meta("Item")
-		for field in custom_fields:
-			if not meta.has_field(field) or not frappe.db.has_column("Item", field):
-				frappe.throw(_("Item field {0} is unavailable. Synchronize the site custom fields before retrying.").format(field))
+	item_doc_data = _get_item_document_data(payload)
 
 	# 记录日志
 	crm_log = create_crm_log(
@@ -1108,14 +1097,7 @@ def create_item_from_crm(item_data=None):
 	)
 
 	try:
-		doc = frappe.get_doc({
-			"doctype": "Item",
-			"item_code": item_code,
-			"item_name": payload["item_name"],
-			"item_group": payload["item_group"],
-			"stock_uom": payload["stock_uom"],
-			**custom_fields,
-		})
+		doc = frappe.get_doc(item_doc_data)
 		doc.insert(ignore_permissions=True)
 
 		response = {
@@ -1154,6 +1136,9 @@ def validate_item_payload(payload):
 	if not payload.get("item_code"):
 		frappe.throw(_("缺少必填字段：item_code"))
 
+	if not isinstance(payload["item_code"], str) or not payload["item_code"].strip():
+		frappe.throw(_("Item code must be a non-empty string."))
+
 	if not payload.get("item_name"):
 		frappe.throw(_("缺少必填字段：item_name"))
 
@@ -1163,6 +1148,26 @@ def validate_item_payload(payload):
 	if not payload.get("stock_uom"):
 		frappe.throw(_("缺少必填字段：stock_uom"))
 
-	for field in CRM_ITEM_CUSTOM_FIELDS:
-		if payload.get(field) is not None and not isinstance(payload[field], str):
-			frappe.throw(_("Item field {0} must be a string or null.").format(field))
+
+def _get_item_document_data(payload, doctype="Item"):
+	"""接收模型中的全部业务字段，避免把审计字段和内部控制参数作为文档属性传入。"""
+	data = {"doctype": doctype}
+	meta = frappe.get_meta(doctype)
+	ignored_fields = {*frappe.model.default_fields, *frappe.model.child_table_fields, "flags", "cmd"}
+	for fieldname, value in payload.items():
+		if fieldname in ignored_fields or fieldname.startswith("_"):
+			continue
+		field = meta.get_field(fieldname)
+		if not field:
+			frappe.throw(_("Field {0} is unavailable on {1}. Check the field name and synchronize the site fields before retrying.").format(fieldname, doctype))
+		if field.fieldtype in frappe.model.display_fieldtypes:
+			continue
+		if field.fieldtype in frappe.model.table_fields:
+			if value is not None:
+				if not isinstance(value, list) or any(not isinstance(row, dict) for row in value):
+					frappe.throw(_("Field {0} must be a list of JSON objects.").format(fieldname))
+				value = [_get_item_document_data(row, field.options) for row in value]
+		elif not getattr(field, "is_virtual", False) and not frappe.db.has_column(doctype, fieldname):
+			frappe.throw(_("Field {0} is unavailable on {1}. Check the field name and synchronize the site fields before retrying.").format(fieldname, doctype))
+		data[fieldname] = value
+	return data
